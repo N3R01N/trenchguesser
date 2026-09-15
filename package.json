@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "test": "node --test test/*.test.ts",
-    "snapshot": "node --env-file=.env.local scripts/build-snapshot.ts"
+    "snapshot": "node --env-file=.env.local scripts/build-snapshot.ts",
+    "playthrough": "node --env-file=.env.local scripts/playthrough.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.4",

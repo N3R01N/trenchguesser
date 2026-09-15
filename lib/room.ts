@@ -352,7 +352,14 @@ export async function setPresence(
   return write(room);
 }
 
-/** What a given player is allowed to see right now. */
+/**
+ * The shared view of a room.
+ *
+ * Deliberately player-agnostic: an identical payload for every phone means the
+ * CDN can collapse a whole table's polling into one origin read per second. The
+ * client derives "is it my turn" from the player id it holds locally, and it
+ * already knows its own guesses, so nothing per-player needs to be served.
+ */
 export interface PublicState {
   code: string;
   v: number;
@@ -360,15 +367,13 @@ export interface PublicState {
   phase: Room['phase'];
   phaseEndsAt: number | null;
   hostId: string;
-  you: string;
-  isHost: boolean;
   activePlayerId: string | null;
-  isYourTurn: boolean;
   config: GameConfig;
   totalRounds: number;
   roundNo: number;
   players: Player[];
   round: PublicRound | null;
+  /** Player ids that have locked in this round. */
   submitted: string[];
 }
 
@@ -380,20 +385,17 @@ export interface PublicRound {
   cats: Category[];
   mergedFdv: boolean;
   durationMs: number;
-  /** Present only once the round is revealed. */
+  /** Null until the round is revealed. */
   truth: Record<Category, number> | null;
   result: Round['result'];
+  /** Null until the round is revealed. */
   guesses: Record<string, Guess> | null;
 }
 
 const REVEALED = new Set(['reveal', 'standings', 'final']);
 
-export async function publicState(
-  code: string,
-  playerId: string,
-): Promise<PublicState> {
+export async function publicState(code: string): Promise<PublicState> {
   const room = await read(code);
-  const you = player(room, playerId);
   const revealed = REVEALED.has(room.phase);
   const round = room.round;
 
@@ -402,12 +404,8 @@ export async function publicState(
   if (round) {
     const all = await readGuesses(room.code, round.i);
     submitted = Object.keys(all);
-    // Everyone's numbers become visible only at the reveal; before that a
-    // player may see their own, and nothing else.
-    guesses = revealed ? all : all[you.id] ? { [you.id]: all[you.id] } : {};
+    guesses = revealed ? all : null;
   }
-
-  const active = activePlayer(room);
 
   return {
     code: room.code,
@@ -416,10 +414,7 @@ export async function publicState(
     phase: room.phase,
     phaseEndsAt: room.phaseEndsAt,
     hostId: room.hostId,
-    you: you.id,
-    isHost: you.id === room.hostId,
-    activePlayerId: active?.id ?? null,
-    isYourTurn: active?.id === you.id,
+    activePlayerId: activePlayer(room)?.id ?? null,
     config: room.config,
     totalRounds: room.totalRounds,
     roundNo: round?.i ?? 0,

@@ -15,7 +15,7 @@ const POLL_MS = 1_500;
  * CDN cache, so a table full of phones collapses into roughly one origin read
  * per second. Swapping to sockets later should only touch this file.
  */
-export function useRoomState(code: string | null, playerId: string | null) {
+export function useRoomState(code: string | null) {
   const [state, setState] = useState<PublicState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,17 +26,16 @@ export function useRoomState(code: string | null, playerId: string | null) {
   const version = useRef(-1);
 
   const fetchState = useCallback(async () => {
-    if (!code || !playerId) return;
+    if (!code) return;
 
     inFlight.current?.abort();
     const ac = new AbortController();
     inFlight.current = ac;
 
     try {
-      const res = await fetch(
-        `/api/room/${encodeURIComponent(code)}/state?you=${encodeURIComponent(playerId)}`,
-        { signal: ac.signal },
-      );
+      const res = await fetch(`/api/room/${encodeURIComponent(code)}/state`, {
+        signal: ac.signal,
+      });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `Request failed (${res.status})`);
@@ -59,10 +58,10 @@ export function useRoomState(code: string | null, playerId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [code, playerId]);
+  }, [code]);
 
   useEffect(() => {
-    if (!code || !playerId) return;
+    if (!code) return;
 
     let timer: ReturnType<typeof setInterval>;
 
@@ -84,7 +83,7 @@ export function useRoomState(code: string | null, playerId: string | null) {
       document.removeEventListener('visibilitychange', onVisibility);
       inFlight.current?.abort();
     };
-  }, [code, playerId, fetchState]);
+  }, [code, fetchState]);
 
   /** Milliseconds left in the current phase, corrected for clock drift. */
   const msLeft = useCallback(() => {

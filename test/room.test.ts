@@ -137,19 +137,15 @@ describe('secrecy', () => {
     await submitGuess(room.code, hostId, { price: 1, mcap: 1e6 });
     await submitGuess(room.code, anaId, { price: 2, mcap: 2e6 });
 
-    const during = await publicState(room.code, anaId);
+    const during = await publicState(room.code);
     assert.equal(during.round?.truth, null, 'no truth before reveal');
     assert.equal(during.round?.result, null);
-    assert.deepEqual(
-      Object.keys(during.round?.guesses ?? {}),
-      [anaId],
-      'a player sees only their own guess',
-    );
-    assert.equal(during.submitted.length, 2, 'but knows who has locked in');
+    assert.equal(during.round?.guesses, null, 'no guesses leak before reveal');
+    assert.equal(during.submitted.length, 2, 'but everyone knows who locked in');
 
     await advance(room.code, hostId); // guessing -> reveal
 
-    const after = await publicState(room.code, anaId);
+    const after = await publicState(room.code);
     assert.ok(after.round?.truth, 'truth appears at reveal');
     assert.ok(after.round?.result);
     assert.equal(Object.keys(after.round?.guesses ?? {}).length, 2);
@@ -201,7 +197,7 @@ describe('a full game', () => {
     const rand = () => ((rng = (rng * 48271) % 2147483647) / 2147483647);
 
     for (let r = 1; r <= 6; r++) {
-      const before = await publicState(room.code, hostId);
+      const before = await publicState(room.code);
       assert.equal(before.phase, 'spinning');
       const spinner = before.activePlayerId as string;
       assert.equal(spinner, ids[(r - 1) % 3], 'round robin order');
@@ -223,7 +219,7 @@ describe('a full game', () => {
       // an AFK player means the round can only end on the clock
       await expirePhase(room.code);
       await advance(room.code, hostId); // -> reveal
-      const revealed = await publicState(room.code, hostId);
+      const revealed = await publicState(room.code);
       assert.equal(revealed.phase, 'reveal');
       assert.ok(revealed.round?.result);
       assert.equal(
@@ -233,7 +229,7 @@ describe('a full game', () => {
       );
 
       await advance(room.code, hostId); // -> standings
-      const standings = await publicState(room.code, hostId);
+      const standings = await publicState(room.code);
       assert.equal(standings.phase, 'standings');
       assert.equal(
         totalScore(standings.players),
@@ -245,7 +241,7 @@ describe('a full game', () => {
       await advance(room.code, nextUp); // -> spinning, or final on the last round
     }
 
-    const final = await publicState(room.code, hostId);
+    const final = await publicState(room.code);
     assert.equal(final.phase, 'final');
     assert.equal(totalScore(final.players), 0);
     assert.equal(new Set(seenRanks).size, 6, 'every round used a distinct coin');
