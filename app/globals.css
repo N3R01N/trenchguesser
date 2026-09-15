@@ -1,0 +1,26 @@
+:root {
+  --bg: #0e1315;
+  --surface: #161d1f;
+  --text: #e2e8e7;
+  --muted: #97a3a6;
+  --accent: #45b8ae;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* The game is one screen at a time — never scroll the shell. */
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
