@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { post } from '@/lib/client.ts';
 import type { PublicState } from '@/lib/room.ts';
 import { ranked } from '@/lib/badges.ts';
+import { useFlip } from '@/lib/motion.ts';
 import { PlayerRow, RoundDots } from '../ui.tsx';
 
 export function Standings({
@@ -20,6 +21,22 @@ export function Standings({
 
   const order = ranked(state.players);
   const delta = state.round?.result?.delta ?? {};
+  // Crowning everyone who took a category makes the crown meaningless in a
+  // two-player game; only the round's biggest gainers get it.
+  const best = Math.max(0, ...Object.values(delta));
+  const winners = new Set(
+    best > 0
+      ? Object.entries(delta)
+          .filter(([, d]) => d === best)
+          .map(([id]) => id)
+      : [],
+  );
+
+  // Rows are keyed by round so the animation runs once per scored round.
+  const bindRow = useFlip<HTMLLIElement>([
+    `${state.roundNo}`,
+    ...order.map((p) => p.id),
+  ]);
 
   const currentIdx = state.players.findIndex((p) => p.id === state.activePlayerId);
   const next = state.players[(currentIdx + 1) % state.players.length];
@@ -55,6 +72,9 @@ export function Standings({
               you={you}
               position={i + 1}
               delta={delta[p.id]}
+              deltas={delta}
+              crown={winners.has(p.id)}
+              rowRef={bindRow(p.id)}
             />
           ))}
         </ul>

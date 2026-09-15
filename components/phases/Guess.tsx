@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buzz, post } from '@/lib/client.ts';
-import type { PublicState } from '@/lib/room.ts';
-import { CATEGORY_LABELS, type Category } from '@/lib/types.ts';
-import { usd } from '@/lib/format.ts';
+import type { PublicRound, PublicState } from '@/lib/room.ts';
+import { CATEGORY_LABELS, SPIN_SETTLE_MS, type Category } from '@/lib/types.ts';
+import { decadeLabel, usd } from '@/lib/format.ts';
+import { prefersReducedMotion, useWakeLock } from '@/lib/motion.ts';
 import { CoinHeader, TimerRing } from '../ui.tsx';
 
 /**
@@ -34,11 +35,13 @@ export function Guess({
   state,
   you,
   ms,
+  introMs,
   onChanged,
 }: {
   state: PublicState;
   you: string;
   ms: number | null;
+  introMs: number | null;
   onChanged: () => void;
 }) {
   const round = state.round!;
@@ -48,6 +51,8 @@ export function Guess({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sending = useRef(false);
+
+  useWakeLock(!submitted);
 
   const submit = useCallback(async () => {
     if (sending.current || submitted) return;
@@ -72,6 +77,10 @@ export function Guess({
     if (ms !== null && ms <= 400 && !submitted) void submit();
   }, [ms, submitted, submit]);
 
+  if (introMs !== null && introMs > 0) {
+    return <CoinIntro round={round} introMs={introMs} />;
+  }
+
   const locked = state.submitted.length;
   const total = state.players.length;
 
@@ -84,32 +93,18 @@ export function Guess({
 
       <div className="screen-body">
         {round.cats.map((cat) => (
-          <div className="guess" key={cat}>
-            <div className="row spread">
-              <span className="label">
-                {cat === 'mcap' && round.mergedFdv
-                  ? 'Market cap / FDV'
-                  : CATEGORY_LABELS[cat]}
-              </span>
-            </div>
-            <span className="guess-value">{usd(toValue(steps[cat] ?? 0, cat))}</span>
-            <input
-              type="range"
-              min={0}
-              max={STEPS}
-              step={1}
-              value={steps[cat] ?? STEPS / 2}
-              disabled={submitted}
-              aria-label={CATEGORY_LABELS[cat]}
-              onChange={(e) =>
-                setSteps((prev) => ({ ...prev, [cat]: Number(e.target.value) }))
-              }
-            />
-            <div className="row spread">
-              <span className="label">{usd(BOUNDS[cat][0])}</span>
-              <span className="label">{usd(BOUNDS[cat][1])}</span>
-            </div>
-          </div>
+          <LogSlider
+            key={cat}
+            cat={cat}
+            label={
+              cat === 'mcap' && round.mergedFdv
+                ? 'Market cap / FDV'
+                : CATEGORY_LABELS[cat]
+            }
+            step={steps[cat] ?? STEPS / 2}
+            disabled={submitted}
+            onChange={(v) => setSteps((prev) => ({ ...prev, [cat]: v }))}
+          />
         ))}
       </div>
 
@@ -117,13 +112,141 @@ export function Guess({
 
       <div className="screen-foot">
         <button
-          className="btn btn-primary btn-lg"
+          className={`btn btn-lg${submitted ? '' : ' btn-primary'}`}
           disabled={submitted}
           onClick={() => void submit()}
         >
           {submitted ? `Locked in — ${locked}/${total}` : 'Lock it in'}
         </button>
+        {submitted && (
+          <div className="locked-strip">
+            {state.players.map((p) => (
+              <span
+                key={p.id}
+                className={`locked-chip${
+                  state.submitted.includes(p.id) ? ' is-in' : ''
+                }`}
+              >
+                {p.name.slice(0, 8)}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </main>
+  );
+}
+
+/** The shared beat: the number lands, then the coin drops in, then sliders go live. */
+function CoinIntro({ round, introMs }: { round: PublicRound; introMs: number }) {
+  const progress = 1 - introMs / SPIN_SETTLE_MS;
+  const settling = progress < 0.5 && !prefersReducedMotion();
+  const [shown, setShown] = useState(round.rank);
+  const buzzed = useRef(false);
+
+  useEffect(() => {
+    if (!settling) {
+      setShown(round.rank);
+      if (!buzzed.current) {
+        buzzed.current = true;
+        buzz(45);
+      }
+      return;
+    }
+    let frame = 0;
+    const tick = () => {
+      // The flicker narrows onto the real number instead of stopping dead.
+      const spread = Math.max(1, Math.round(300 * (1 - progress / 0.5)));
+      setShown(round.rank + Math.round((Math.random() - 0.5) * 2 * spread));
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [settling, progress, round.rank]);
+
+  return (
+    <main className="screen">
+      <div className="screen-body center" style={{ justifyContent: 'center' }}>
+        <span className="label">Rank</span>
+        <div className={`reel${settling ? ' is-spinning' : ' is-landed'}`}>
+          <span className="reel-number mono">{shown}</span>
+        </div>
+
+        <div className={`intro-coin${settling ? '' : ' is-in'}`}>
+          <CoinHeader coin={round.coin} rank={round.rank} />
+        </div>
+      </div>
+
+      <div className="screen-foot">
+        <button className="btn btn-lg" disabled>
+          Get ready…
+        </button>
+      </div>
+    </main>
+  );
+}
+
+function LogSlider({
+  cat,
+  label,
+  step,
+  disabled,
+  onChange,
+}: {
+  cat: Category;
+  label: string;
+  step: number;
+  disabled: boolean;
+  onChange: (step: number) => void;
+}) {
+  const value = toValue(step, cat);
+  const [lo, hi] = BOUNDS[cat];
+  const decade = useRef(Math.floor(Math.log10(value)));
+
+  function handle(next: number) {
+    const nextDecade = Math.floor(Math.log10(toValue(next, cat)));
+    if (nextDecade !== decade.current) {
+      decade.current = nextDecade;
+      buzz(6); // a tick at every order of magnitude
+    }
+    onChange(next);
+  }
+
+  // Tick every three decades so every label lands on a K/M/B/T boundary —
+  // mixing "$1M" with "1e10" on one axis reads as a bug.
+  const decades: number[] = [];
+  const first = Math.ceil(Math.log10(lo));
+  const last = Math.floor(Math.log10(hi));
+  for (let d = Math.ceil(first / 3) * 3; d <= last; d += 3) decades.push(d);
+
+  return (
+    <div className="guess">
+      <span className="label">{label}</span>
+      <span className="guess-value">{usd(value)}</span>
+      <input
+        type="range"
+        min={0}
+        max={STEPS}
+        step={1}
+        value={step}
+        disabled={disabled}
+        aria-label={label}
+        aria-valuetext={usd(value)}
+        style={{ '--fill': `${(step / STEPS) * 100}%` } as React.CSSProperties}
+        onChange={(e) => handle(Number(e.target.value))}
+      />
+      <div className="guess-scale" aria-hidden="true">
+        {decades.map((d) => (
+          <span
+            key={d}
+            style={{
+              left: `${((d - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo))) * 100}%`,
+            }}
+          >
+            {decadeLabel(d)}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

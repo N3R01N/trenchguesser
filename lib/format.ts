@@ -19,11 +19,21 @@ export function compact(n: number): string {
   }
   if (n >= 1) return n.toFixed(2);
 
-  // 0.0000809 rather than 8.09e-5 — players think in decimals here.
-  return n.toPrecision(3).replace(/e-(\d+)$/, (_, exp) => {
-    const zeros = '0'.repeat(Number(exp) - 1);
-    return `0.${zeros}${n.toPrecision(3).split('e')[0].replace('.', '')}`;
-  });
+  // Players think in decimals down to about a millionth; past that a run of
+  // zeros is unreadable and the exponent is clearer.
+  if (n >= 1e-6) return n.toFixed(Math.min(12, Math.max(2, 2 - Math.floor(Math.log10(n)))));
+
+  const exp = Math.floor(Math.log10(n));
+  const mantissa = n / 10 ** exp;
+  return `${mantissa.toFixed(1)}e${exp}`;
+}
+
+/** Axis labels sit on exact powers of ten, so they can be shorter still. */
+export function decadeLabel(exp: number): string {
+  const suffix: Record<number, string> = { 0: '', 3: 'K', 6: 'M', 9: 'B', 12: 'T' };
+  if (exp >= 0 && exp <= 12 && exp % 3 === 0) return `$1${suffix[exp]}`;
+  if (exp < 0 && exp >= -3) return `$${(10 ** exp).toFixed(-exp)}`;
+  return `1e${exp}`;
 }
 
 export function usd(n: number): string {

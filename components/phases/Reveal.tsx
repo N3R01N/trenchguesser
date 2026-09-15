@@ -1,92 +1,153 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { PublicState } from '@/lib/room.ts';
+import { REVEAL_STEP_MS } from '@/lib/room.ts';
 import { CATEGORY_LABELS } from '@/lib/types.ts';
 import { offBy, usd } from '@/lib/format.ts';
+import { revealTier, type RevealTier } from '@/lib/score.ts';
+import { useCountUp, useStagger } from '@/lib/motion.ts';
+import { buzz } from '@/lib/client.ts';
+import { Confetti } from '../Confetti.tsx';
+import { LogScale, type ScaleEntry } from '../LogScale.tsx';
 import { CoinHeader } from '../ui.tsx';
 
-/** Screen 08 — the payoff. Phase 3 adds the count-up and the confetti. */
+const TIER_COPY: Record<RevealTier, string> = {
+  bullseye: 'Bullseye',
+  close: 'Close',
+  off: 'Off',
+  'way-off': 'Way off',
+};
+
+/** Screen 08 — the payoff. */
 export function Reveal({ state, you }: { state: PublicState; you: string }) {
   const round = state.round!;
   const truth = round.truth!;
   const result = round.result!;
-  const name = (id: string) => state.players.find((p) => p.id === id)?.name ?? '—';
+
+  const shown = useStagger(result.outcomes.length, REVEAL_STEP_MS);
+  const [celebrated, setCelebrated] = useState(false);
+
+  // One burst per round, the first time you nail a category.
+  useEffect(() => {
+    if (celebrated || shown === 0) return;
+    const latest = result.outcomes[shown - 1];
+    if (!latest) return;
+    const mine = round.guesses?.[you]?.values?.[latest.cat] ?? null;
+    if (revealTier(mine, truth[latest.cat]) === 'bullseye') {
+      setCelebrated(true);
+      buzz([18, 50, 18, 50, 34]);
+    }
+  }, [shown, celebrated, result.outcomes, round.guesses, truth, you]);
+
+  const spinner = state.players.find((p) => p.id === round.spunBy);
 
   return (
     <main className="screen">
-      <CoinHeader coin={round.coin} rank={round.rank} />
+      <Confetti fire={celebrated} />
+
+      <div className="row spread">
+        <CoinHeader coin={round.coin} rank={round.rank} />
+        <span className="label">{spinner?.name} spun it</span>
+      </div>
 
       <div className="screen-body">
-        {result.outcomes.map((outcome) => {
+        {result.outcomes.map((outcome, i) => {
+          if (i >= shown) return null;
           const actual = truth[outcome.cat];
-          const rows = state.players
-            .map((p) => ({
-              id: p.id,
-              name: p.name,
-              guess: round.guesses?.[p.id]?.values?.[outcome.cat] ?? null,
-              won: outcome.winners.includes(p.id),
-            }))
-            .sort((a, b) => Number(b.won) - Number(a.won));
+          const mine = round.guesses?.[you]?.values?.[outcome.cat] ?? null;
+          const tier = revealTier(mine, actual);
+
+          const entries: ScaleEntry[] = state.players.map((p) => ({
+            id: p.id,
+            name: p.name,
+            guess: round.guesses?.[p.id]?.values?.[outcome.cat] ?? null,
+            won: outcome.winners.includes(p.id),
+            you: p.id === you,
+          }));
 
           return (
-            <div className="reveal-cat" key={outcome.cat}>
-              <div className="row spread">
-                <span className="label">
-                  {outcome.cat === 'mcap' && round.mergedFdv
-                    ? 'Market cap / FDV'
-                    : CATEGORY_LABELS[outcome.cat]}
-                </span>
-                {outcome.winners.length === 0 && (
-                  <span className="label">nobody guessed</span>
-                )}
-              </div>
-              <span className="reveal-truth">{usd(actual)}</span>
-
-              <div className="stack" style={{ gap: 4 }}>
-                {rows.map((r) => (
-                  <div
-                    className={`reveal-row${r.won ? ' won' : ''}`}
-                    key={r.id}
-                  >
-                    <span>
-                      {r.won ? '🎯 ' : ''}
-                      {r.name}
-                      {r.id === you ? ' (you)' : ''}
-                    </span>
-                    <span className="reveal-guess">
-                      {r.guess === null ? '—' : usd(r.guess)}
-                    </span>
-                    <span className="reveal-off">{offBy(r.guess, actual)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <RevealCategory
+              key={outcome.cat}
+              label={
+                outcome.cat === 'mcap' && round.mergedFdv
+                  ? 'Market cap / FDV'
+                  : CATEGORY_LABELS[outcome.cat]
+              }
+              actual={actual}
+              mine={mine}
+              tier={tier}
+              entries={entries}
+              nobody={outcome.winners.length === 0}
+              isLatest={i === shown - 1}
+            />
           );
         })}
       </div>
 
       <div className="screen-foot">
-        <div className="row spread">
-          <span className="label">This round</span>
-          <span className="row" style={{ gap: 12 }}>
-            {state.players.map((p) => {
-              const d = result.delta[p.id] ?? 0;
-              return (
-                <span key={p.id} className={`player-delta ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`}>
-                  {p.name.slice(0, 6)} {d > 0 ? `+${d}` : d}
+        <div className="delta-strip">
+          {state.players.map((p) => {
+            const d = result.delta[p.id] ?? 0;
+            return (
+              <span key={p.id} className="delta-chip">
+                <span className="delta-name">{p.name.slice(0, 7)}</span>
+                <span className={`player-delta ${d > 0 ? 'up' : d < 0 ? 'down' : ''}`}>
+                  {d > 0 ? `+${d}` : d}
                 </span>
-              );
-            })}
-          </span>
+              </span>
+            );
+          })}
         </div>
-        <p className="muted" style={{ textAlign: 'center' }}>
-          Scores in a moment…
-        </p>
+      </div>
+    </main>
+  );
+}
+
+function RevealCategory({
+  label,
+  actual,
+  mine,
+  tier,
+  entries,
+  nobody,
+  isLatest,
+}: {
+  label: string;
+  actual: number;
+  mine: number | null;
+  tier: RevealTier;
+  entries: ScaleEntry[];
+  nobody: boolean;
+  isLatest: boolean;
+}) {
+  const counted = useCountUp(actual, 900);
+  const [settled, setSettled] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(true), 950);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div
+      className={`reveal-cat tier-${tier}${isLatest && settled ? ' is-latest' : ''}`}
+    >
+      <div className="row spread">
+        <span className="label">{label}</span>
+        {nobody ? (
+          <span className="label">nobody guessed</span>
+        ) : (
+          <span className={`tier-tag tier-${tier}`}>
+            {TIER_COPY[tier]}
+            {mine !== null && ` · ${offBy(mine, actual)}`}
+          </span>
+        )}
       </div>
 
-      <span className="label" style={{ textAlign: 'center' }}>
-        {name(round.spunBy)} spun this one
-      </span>
-    </main>
+      <span className="reveal-truth mono">{usd(counted)}</span>
+
+      <LogScale truth={actual} entries={entries} show={settled} />
+    </div>
   );
 }

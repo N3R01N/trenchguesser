@@ -14,8 +14,13 @@ import { Final } from './phases/Final.tsx';
 export function Game({ code }: { code: string }) {
   const [you, setYou] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const { state, error, loading, refresh, msLeft } = useRoomState(code);
+  const { state, error, loading, refresh, msLeft, msUntil } = useRoomState(code);
   const ms = useCountdown(msLeft);
+
+  // The shared beat between the reel stopping and the sliders going live.
+  const opensAt = state?.round?.opensAt;
+  const introLeft = useCallback(() => msUntil(opensAt), [msUntil, opensAt]);
+  const introMs = useCountdown(introLeft);
 
   // localStorage is unavailable during the server render.
   useEffect(() => {
@@ -118,7 +123,15 @@ export function Game({ code }: { code: string }) {
     case 'spinning':
       return <Spin state={state} you={you!} onChanged={onChanged} />;
     case 'guessing':
-      return <Guess state={state} you={you!} ms={ms} onChanged={onChanged} />;
+      return (
+        <Guess
+          state={state}
+          you={you!}
+          ms={ms}
+          introMs={introMs}
+          onChanged={onChanged}
+        />
+      );
     case 'reveal':
       return <Reveal state={state} you={you!} />;
     case 'standings':

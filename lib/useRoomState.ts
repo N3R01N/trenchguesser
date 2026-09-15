@@ -85,13 +85,18 @@ export function useRoomState(code: string | null) {
     };
   }, [code, fetchState]);
 
-  /** Milliseconds left in the current phase, corrected for clock drift. */
-  const msLeft = useCallback(() => {
-    if (!state?.phaseEndsAt) return null;
-    return Math.max(0, state.phaseEndsAt - (Date.now() + offset.current));
-  }, [state]);
+  /** Milliseconds until a server timestamp, corrected for clock drift. */
+  const msUntil = useCallback((ts: number | null | undefined) => {
+    if (!ts) return null;
+    return Math.max(0, ts - (Date.now() + offset.current));
+  }, []);
 
-  return { state, error, loading, refresh: fetchState, msLeft };
+  const msLeft = useCallback(
+    () => msUntil(state?.phaseEndsAt),
+    [msUntil, state?.phaseEndsAt],
+  );
+
+  return { state, error, loading, refresh: fetchState, msLeft, msUntil };
 }
 
 /** A countdown that ticks locally so the UI stays smooth between polls. */

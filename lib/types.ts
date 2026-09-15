@@ -107,6 +107,8 @@ export interface Round {
   cats: Category[];
   mergedFdv: boolean;
   durationMs: number;
+  /** Server epoch ms at which the sliders become live. */
+  opensAt: number;
   result: RoundResult | null;
 }
 
@@ -125,6 +127,14 @@ export interface Room {
   players: Player[];
   round: Round | null;
 }
+
+/**
+ * The beat between the reel stopping and the sliders going live.
+ *
+ * Everyone watches the number land and the coin drop in together, and the
+ * guessing clock only starts afterwards — so spinning never costs you time.
+ */
+export const SPIN_SETTLE_MS = 1_800;
 
 /** Guesses landing within 1.5s of the deadline still count. */
 export const GUESS_GRACE_MS = 1_500;

@@ -88,22 +88,37 @@ export function PlayerRow({
   you,
   position,
   delta,
+  deltas,
+  rowRef,
+  crown,
+  medal,
 }: {
   player: Player;
   players: Player[];
   you: string;
   position?: number;
   delta?: number;
+  deltas?: Record<string, number>;
+  rowRef?: (el: HTMLLIElement | null) => void;
+  crown?: boolean;
+  medal?: string;
 }) {
-  const badges = badgesFor(players, player.id);
+  const badges = badgesFor(players, player.id, deltas);
 
   return (
     <li
+      ref={rowRef}
       className={`player${player.id === you ? ' is-you' : ''}${
         player.present ? '' : ' is-out'
-      }`}
+      }${crown ? ' is-crowned' : ''}`}
     >
-      {position !== undefined && <span className="player-pos">{position}</span>}
+      {medal ? (
+        <span className="player-pos" aria-hidden="true">
+          {medal}
+        </span>
+      ) : (
+        position !== undefined && <span className="player-pos">{position}</span>
+      )}
       <span className="player-name">{player.name}</span>
       {badges.length > 0 && (
         <span className="badges">

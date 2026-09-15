@@ -4,14 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import { buzz, post } from '@/lib/client.ts';
 import type { PublicState } from '@/lib/room.ts';
 import { RANGES } from '@/lib/types.ts';
+import { prefersReducedMotion } from '@/lib/motion.ts';
 import { RoundDots } from '../ui.tsx';
 
 /**
  * The reel.
  *
- * The player stops on a *number*, not a coin, so nobody gains an information
- * advantage by taking their own turn — everyone learns which token it is at the
- * same instant.
+ * The player stops on a *number*, not a coin, so taking your own turn earns no
+ * information advantage — everyone learns which token it is at the same instant,
+ * during the shared beat on the next screen.
  */
 export function Spin({
   state,
@@ -27,16 +28,20 @@ export function Spin({
   const spinner = state.players.find((p) => p.id === state.activePlayerId);
 
   const [display, setDisplay] = useState<number>(from);
-  const [stopping, setStopping] = useState(false);
+  const [landed, setLanded] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const frame = useRef<number>(0);
+  const frame = useRef(0);
 
-  // Free-running reel until someone stops it.
   useEffect(() => {
-    if (stopping) return;
+    if (landed !== null) return;
+    if (prefersReducedMotion()) {
+      setDisplay(Math.round((from + to) / 2));
+      return;
+    }
+
     let last = 0;
     const tick = (t: number) => {
-      if (t - last > 45) {
+      if (t - last > 42) {
         last = t;
         setDisplay(from + Math.floor(Math.random() * (to - from + 1)));
       }
@@ -44,23 +49,23 @@ export function Spin({
     };
     frame.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame.current);
-  }, [from, to, stopping]);
+  }, [from, to, landed]);
 
   async function stop() {
-    if (!isMine || stopping) return;
-    setStopping(true);
-    buzz(20);
+    if (!isMine || landed !== null) return;
+    buzz([12, 40, 24]);
     const picked = display;
+    setLanded(picked);
     try {
       const res = await post<{ rank: number }>(`/api/room/${state.code}/spin`, {
         playerId: you,
         rank: picked,
       });
-      setDisplay(res.rank);
+      setLanded(res.rank);
       onChanged();
     } catch (err) {
       setError((err as Error).message);
-      setStopping(false);
+      setLanded(null);
     }
   }
 
@@ -74,13 +79,15 @@ export function Spin({
       </div>
 
       <div className="screen-body center" style={{ justifyContent: 'center' }}>
-        <div className="spinner-window">
-          <span className="spinner-number mono">{display}</span>
+        <div className={`reel${landed === null ? ' is-spinning' : ' is-landed'}`}>
+          <span className="reel-number mono">{landed ?? display}</span>
         </div>
         <p className="muted">
-          {isMine
-            ? 'Tap stop. Whatever number you land on is the coin everybody guesses.'
-            : `${spinner?.name ?? 'Someone'} is spinning…`}
+          {landed !== null
+            ? 'Locked.'
+            : isMine
+              ? 'Tap stop. Whatever number you land on is the coin everybody guesses.'
+              : `${spinner?.name ?? 'Someone'} is spinning…`}
         </p>
       </div>
 
@@ -90,10 +97,10 @@ export function Spin({
         {isMine ? (
           <button
             className="btn btn-primary btn-lg"
-            disabled={stopping}
+            disabled={landed !== null}
             onClick={stop}
           >
-            {stopping ? 'Locking it in…' : 'Stop'}
+            {landed !== null ? 'Here it comes…' : 'Stop'}
           </button>
         ) : (
           <button className="btn btn-lg" disabled>

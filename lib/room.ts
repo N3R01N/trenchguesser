@@ -9,6 +9,7 @@ import {
   DEFAULT_CONFIG,
   GUESS_GRACE_MS,
   RANGES,
+  SPIN_SETTLE_MS,
   roundDuration,
   type Category,
   type GameConfig,
@@ -20,12 +21,20 @@ import {
 
 const ROOM_TTL_S = 6 * 60 * 60;
 /**
- * How long the reveal animation owns the screen before standings.
- * Read lazily: ESM hoists imports above any env assignment a caller makes.
+ * How long the reveal owns the screen before standings.
+ *
+ * Scales with the number of categories, because each one gets its own beat:
+ * the true value counts up, then every guess slides onto the log scale. Read
+ * lazily — ESM hoists imports above any env assignment a caller makes.
  */
-export function revealMs(): number {
-  return Number(process.env.TG_REVEAL_MS ?? 6_000);
+export function revealMs(categoryCount = 1): number {
+  const override = process.env.TG_REVEAL_MS;
+  if (override !== undefined) return Number(override);
+  return 2_000 + categoryCount * 2_400;
 }
+
+/** Per-category beat, shared with the client's stagger. */
+export const REVEAL_STEP_MS = 2_400;
 const MIN_PLAYERS = 2;
 
 /** No I/O/0/1 — these get misread off a phone screen across a table. */
@@ -210,6 +219,7 @@ export async function spin(
   const { cats, mergedFdv } = effectiveCategories(room.config.categories, truth);
   const durationMs = roundDuration(room.config.baseRoundMs, cats.length);
 
+  const opensAt = Date.now() + SPIN_SETTLE_MS;
   const roundNo = (room.round?.i ?? 0) + 1;
   const round: Round = {
     i: roundNo,
@@ -220,13 +230,14 @@ export async function spin(
     cats,
     mergedFdv,
     durationMs,
+    opensAt,
     result: null,
   };
 
   room.round = round;
   room.usedRanks.push(rank);
   room.phase = 'guessing';
-  room.phaseEndsAt = Date.now() + durationMs;
+  room.phaseEndsAt = opensAt + durationMs;
   await store().del(K.guesses(room.code, roundNo));
   return write(room);
 }
@@ -286,7 +297,7 @@ async function scoreCurrentRound(room: Room): Promise<Room> {
 
   round.result = result;
   room.phase = 'reveal';
-  room.phaseEndsAt = Date.now() + revealMs();
+  room.phaseEndsAt = Date.now() + revealMs(round.cats.length);
   return room;
 }
 
@@ -385,6 +396,7 @@ export interface PublicRound {
   cats: Category[];
   mergedFdv: boolean;
   durationMs: number;
+  opensAt: number;
   /** Null until the round is revealed. */
   truth: Record<Category, number> | null;
   result: Round['result'];
@@ -429,6 +441,7 @@ export async function publicState(code: string): Promise<PublicState> {
           cats: round.cats,
           mergedFdv: round.mergedFdv,
           durationMs: round.durationMs,
+          opensAt: round.opensAt,
           truth: revealed ? round.truth : null,
           result: revealed ? round.result : null,
           guesses,
