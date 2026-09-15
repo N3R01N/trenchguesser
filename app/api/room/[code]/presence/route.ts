@@ -1,6 +1,6 @@
 import { handle, readBody } from '@/lib/http.ts';
-import { presenceSchema } from '@/lib/schemas.ts';
-import { setPresence } from '@/lib/room.ts';
+import { playerSchema } from '@/lib/schemas.ts';
+import { heartbeat } from '@/lib/room.ts';
 
 export async function POST(
   req: Request,
@@ -8,8 +8,7 @@ export async function POST(
 ) {
   return handle(async () => {
     const { code } = await params;
-    const { playerId, present } = await readBody(req, presenceSchema);
-    await setPresence(code, playerId, present);
-    return { ok: true };
+    const { playerId } = await readBody(req, playerSchema);
+    return heartbeat(code, playerId);
   });
 }

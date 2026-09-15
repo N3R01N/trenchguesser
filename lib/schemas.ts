@@ -37,8 +37,3 @@ export const guessSchema = z.object({
   // present, and a player may move only some of the sliders.
   values: z.partialRecord(category, z.number().positive().finite()),
 });
-
-export const presenceSchema = z.object({
-  playerId,
-  present: z.boolean(),
-});

@@ -122,6 +122,8 @@ export interface Room {
   /** Server epoch ms. The only clock that counts. */
   phaseEndsAt: number | null;
   turnIdx: number;
+  /** When the current spin turn began — drives the auto-spin for absent players. */
+  spinningSince: number;
   totalRounds: number;
   usedRanks: number[];
   players: Player[];
@@ -135,6 +137,17 @@ export interface Room {
  * guessing clock only starts afterwards — so spinning never costs you time.
  */
 export const SPIN_SETTLE_MS = 1_800;
+
+/**
+ * How often a client proves it is still there.
+ *
+ * A closed tab or a locked phone sends no goodbye, so presence is something you
+ * keep proving rather than something you announce.
+ */
+export const HEARTBEAT_MS = 8_000;
+
+/** Per-category beat during the reveal, shared by the server clock and the UI. */
+export const REVEAL_STEP_MS = 2_400;
 
 /** Guesses landing within 1.5s of the deadline still count. */
 export const GUESS_GRACE_MS = 1_500;

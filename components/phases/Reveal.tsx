@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PublicState } from '@/lib/room.ts';
-import { REVEAL_STEP_MS } from '@/lib/room.ts';
-import { CATEGORY_LABELS } from '@/lib/types.ts';
+import { CATEGORY_LABELS, REVEAL_STEP_MS } from '@/lib/types.ts';
 import { offBy, usd } from '@/lib/format.ts';
 import { revealTier, type RevealTier } from '@/lib/score.ts';
 import { useCountUp, useStagger } from '@/lib/motion.ts';

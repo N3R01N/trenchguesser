@@ -9,6 +9,7 @@ import {
   DEFAULT_CONFIG,
   GUESS_GRACE_MS,
   RANGES,
+  REVEAL_STEP_MS,
   SPIN_SETTLE_MS,
   roundDuration,
   type Category,
@@ -30,11 +31,8 @@ const ROOM_TTL_S = 6 * 60 * 60;
 export function revealMs(categoryCount = 1): number {
   const override = process.env.TG_REVEAL_MS;
   if (override !== undefined) return Number(override);
-  return 2_000 + categoryCount * 2_400;
+  return 2_000 + categoryCount * REVEAL_STEP_MS;
 }
-
-/** Per-category beat, shared with the client's stagger. */
-export const REVEAL_STEP_MS = 2_400;
 const MIN_PLAYERS = 2;
 
 /** No I/O/0/1 — these get misread off a phone screen across a table. */
@@ -43,7 +41,21 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const K = {
   room: (code: string) => `room:${code}`,
   guesses: (code: string, round: number) => `room:${code}:g:${round}`,
+  seen: (code: string) => `room:${code}:seen`,
 };
+
+/**
+ * Presence is derived from heartbeats, not from a stored flag.
+ *
+ * A closed tab sends no goodbye — visibilitychange doesn't fire reliably when a
+ * phone is locked or the browser is killed — so a player counts as present only
+ * while their pings keep arriving. Heartbeats go to their own hash so they never
+ * contend with the room blob.
+ */
+const PRESENCE_TIMEOUT_MS = 25_000;
+
+/** How long an absent player's turn stalls the game before it spins for them. */
+const AUTO_SPIN_AFTER_MS = 5_000;
 
 export class RoomError extends Error {
   status: number;
@@ -75,6 +87,22 @@ async function read(code: string): Promise<Room> {
   const room = await store().get<Room>(K.room(code.toUpperCase()));
   if (!room) throw new RoomError('Room not found', 404);
   return room;
+}
+
+/** Reads a room with presence recomputed from the heartbeat hash. */
+async function readLive(code: string): Promise<Room> {
+  const room = await read(code);
+  const seen = await store().hgetall<number>(K.seen(room.code));
+  const now = Date.now();
+  for (const p of room.players) {
+    p.present = now - Number(seen[p.id] ?? 0) < PRESENCE_TIMEOUT_MS;
+  }
+  return room;
+}
+
+async function beat(code: string, playerId: string): Promise<void> {
+  await store().hset(K.seen(code.toUpperCase()), playerId, Date.now());
+  await store().expire(K.seen(code.toUpperCase()), ROOM_TTL_S);
 }
 
 async function write(room: Room): Promise<Room> {
@@ -137,6 +165,7 @@ export async function createRoom(
       phase: 'lobby',
       phaseEndsAt: null,
       turnIdx: 0,
+      spinningSince: 0,
       totalRounds: 0,
       usedRanks: [],
       players: [host],
@@ -146,7 +175,10 @@ export async function createRoom(
       ex: ROOM_TTL_S,
       nx: true,
     });
-    if (claimed) return { room, playerId: host.id };
+    if (claimed) {
+      await beat(code, host.id);
+      return { room, playerId: host.id };
+    }
   }
   throw new RoomError('Could not allocate a room code', 503);
 }
@@ -165,6 +197,7 @@ export async function joinRoom(
   const p = newPlayer(name);
   room.players.push(p);
   await write(room);
+  await beat(room.code, p.id);
   return { room, playerId: p.id };
 }
 
@@ -184,6 +217,7 @@ export async function startGame(code: string, playerId: string): Promise<Room> {
 
   room.phase = 'spinning';
   room.phaseEndsAt = null;
+  room.spinningSince = Date.now();
   room.turnIdx = 0;
   return write(room);
 }
@@ -194,13 +228,21 @@ export async function spin(
   playerId: string,
   requestedRank: number,
 ): Promise<Room> {
-  const room = await read(code);
+  const room = await readLive(code);
   if (room.phase !== 'spinning') throw new RoomError('Not spinning right now', 409);
 
   const active = activePlayer(room);
   if (!active) throw new RoomError('No active player', 409);
   if (active.id !== playerId) throw new RoomError('Not your turn', 403);
 
+  return applySpin(room, playerId, requestedRank);
+}
+
+async function applySpin(
+  room: Room,
+  playerId: string,
+  requestedRank: number,
+): Promise<Room> {
   const { from, to } = RANGES[room.config.range];
   const meta = await snapshotMeta();
   const ceiling = Math.min(to, meta?.size ?? to);
@@ -251,7 +293,7 @@ export async function submitGuess(
   playerId: string,
   values: Partial<Record<Category, number>>,
 ): Promise<{ ok: true }> {
-  const room = await read(code);
+  const room = await readLive(code);
   if (room.phase !== 'guessing' || !room.round) {
     throw new RoomError('Not accepting guesses', 409);
   }
@@ -306,11 +348,28 @@ async function scoreCurrentRound(room: Room): Promise<Room> {
  * polling client — the server decides whether the move is legal, not the caller.
  */
 export async function advance(code: string, playerId: string): Promise<Room> {
-  const room = await read(code);
+  const room = await readLive(code);
   player(room, playerId);
   const now = Date.now();
 
   switch (room.phase) {
+    /**
+     * A player who has gone quiet must not be able to stall the game forever,
+     * so anyone may spin on their behalf once their turn has hung long enough.
+     * The rank is random — nobody gets to choose a coin for someone else.
+     */
+    case 'spinning': {
+      const active = activePlayer(room);
+      if (!active) throw new RoomError('No active player', 409);
+      if (active.present) throw new RoomError('Waiting for the spinner', 409);
+      if (now - room.spinningSince < AUTO_SPIN_AFTER_MS) {
+        throw new RoomError('Giving them a moment', 409);
+      }
+      const { from, to } = RANGES[room.config.range];
+      const rank = from + Math.floor(Math.random() * (to - from + 1));
+      return applySpin(room, active.id, rank);
+    }
+
     case 'guessing': {
       const guesses = await readGuesses(room.code, room.round?.i ?? 0);
       const everyoneIn = room.players.every((p) => !p.present || guesses[p.id]);
@@ -343,6 +402,7 @@ export async function advance(code: string, playerId: string): Promise<Room> {
       room.turnIdx = nextIdx;
       room.phase = 'spinning';
       room.phaseEndsAt = null;
+      room.spinningSince = Date.now();
       return write(room);
     }
 
@@ -351,16 +411,29 @@ export async function advance(code: string, playerId: string): Promise<Room> {
   }
 }
 
-export async function setPresence(
-  code: string,
-  playerId: string,
-  present: boolean,
-): Promise<Room> {
-  const room = await read(code);
-  const p = player(room, playerId);
-  if (p.present === present) return room;
-  p.present = present;
-  return write(room);
+/**
+ * Marks a player alive, and hands the lobby on if the host has vanished.
+ *
+ * Migration is only meaningful before the game starts: once it is running the
+ * host has no special powers, because each round is started by the next player.
+ */
+export async function heartbeat(code: string, playerId: string): Promise<{ ok: true }> {
+  await beat(code, playerId);
+
+  const room = await readLive(code);
+  player(room, playerId);
+
+  if (room.phase === 'lobby') {
+    const host = room.players.find((p) => p.id === room.hostId);
+    if (host && !host.present) {
+      const heir = room.players.find((p) => p.present && p.id !== host.id);
+      if (heir) {
+        room.hostId = heir.id;
+        await write(room);
+      }
+    }
+  }
+  return { ok: true };
 }
 
 /**
@@ -407,7 +480,7 @@ export interface PublicRound {
 const REVEALED = new Set(['reveal', 'standings', 'final']);
 
 export async function publicState(code: string): Promise<PublicState> {
-  const room = await read(code);
+  const room = await readLive(code);
   const revealed = REVEALED.has(room.phase);
   const round = room.round;
 

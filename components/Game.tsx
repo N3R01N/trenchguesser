@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { post } from '@/lib/client.ts';
 import { playerFor, lastName, rememberPlayer } from '@/lib/identity.ts';
 import { useCountdown, useRoomState } from '@/lib/useRoomState.ts';
+import { HEARTBEAT_MS } from '@/lib/types.ts';
 import { Lobby } from './phases/Lobby.tsx';
 import { Spin } from './phases/Spin.tsx';
 import { Guess } from './phases/Guess.tsx';
@@ -40,7 +41,12 @@ export function Game({ code }: { code: string }) {
   useEffect(() => {
     if (!state || !you || !known) return;
 
+    const spinnerGone =
+      state.phase === 'spinning' &&
+      !state.players.find((p) => p.id === state.activePlayerId)?.present;
+
     const shouldAdvance =
+      spinnerGone ||
       (state.phase === 'guessing' &&
         (ms === 0 ||
           state.players
@@ -50,7 +56,11 @@ export function Game({ code }: { code: string }) {
 
     if (!shouldAdvance) return;
 
-    const key = `${state.phase}:${state.v}`;
+    // A stalled spin needs retrying: presence decays without bumping the
+    // version, so the version alone would only ever let one attempt through.
+    const key = spinnerGone
+      ? `spin-rescue:${state.v}:${Math.floor(Date.now() / 5000)}`
+      : `${state.phase}:${state.v}`;
     if (attempted.current === key) return;
     attempted.current = key;
 
@@ -69,16 +79,25 @@ export function Game({ code }: { code: string }) {
     return () => clearTimeout(t);
   }, [state, you, known, ms, code, refresh]);
 
-  // Tell the room when this phone goes away and when it comes back.
+  /**
+   * Heartbeat. A closed tab or a locked phone sends no goodbye, so presence is
+   * something you keep proving rather than something you announce.
+   */
   useEffect(() => {
     if (!you || !known) return;
-    const send = (present: boolean) =>
-      void post(`/api/room/${code}/presence`, { playerId: you, present }).catch(
-        () => {},
-      );
-    const onVisibility = () => send(document.visibilityState === 'visible');
+    const beat = () =>
+      void post(`/api/room/${code}/presence`, { playerId: you }).catch(() => {});
+
+    beat();
+    const timer = setInterval(beat, HEARTBEAT_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') beat();
+    };
     document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [code, you, known]);
 
   const onChanged = useCallback(() => void refresh(), [refresh]);
