@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { post } from '@/lib/client.ts';
 import { lastName, rememberPlayer } from '@/lib/identity.ts';
+import { Spinner } from '@/components/ui.tsx';
 
 export default function Home() {
   const router = useRouter();
@@ -81,7 +82,14 @@ export default function Home() {
               className="btn btn-primary btn-lg"
               disabled={busy || code.trim().length < 4 || !name.trim()}
             >
-              {busy ? 'Joining…' : 'Join game'}
+              {busy ? (
+                <>
+                  <Spinner size={16} />
+                  Joining…
+                </>
+              ) : (
+                'Join game'
+              )}
             </button>
             <button
               type="button"

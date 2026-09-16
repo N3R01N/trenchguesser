@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { post } from '@/lib/client.ts';
 import { lastName, rememberPlayer } from '@/lib/identity.ts';
+import { Spinner, WaitNote, type WaitStage } from '@/components/ui.tsx';
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -13,6 +14,18 @@ import {
   type Category,
   type RangeKey,
 } from '@/lib/types.ts';
+
+/**
+ * Creating a room rebuilds the coin snapshot when the cached one has aged out,
+ * which crawls CoinGecko for the better part of a minute. These track the real
+ * phases of that crawl so a cold build reads as work rather than a hang.
+ */
+const BUILD_STAGES: WaitStage[] = [
+  { after: 0, text: 'Checking for a recent coin list…' },
+  { after: 6, text: 'Crawling the market-cap rankings…' },
+  { after: 22, text: 'Dropping stablecoins, wrapped and bridged tokens…' },
+  { after: 45, text: 'Nearly there — the first game after a deploy is the slow one.' },
+];
 
 const BASE_CHOICES = [5_000, 10_000, 15_000, 20_000];
 const PER_PLAYER_CHOICES = [1, 2, 3];
@@ -185,12 +198,20 @@ export default function HostSetup() {
       {error && <div className="error">{error}</div>}
 
       <div className="screen-foot">
+        {busy && <WaitNote title="Building the coin list" stages={BUILD_STAGES} />}
         <button
           className="btn btn-primary btn-lg"
           disabled={busy || !name.trim() || categories.length === 0}
           onClick={create}
         >
-          {busy ? 'Building the coin list…' : 'Create game'}
+          {busy ? (
+            <>
+              <Spinner size={16} />
+              Setting up…
+            </>
+          ) : (
+            'Create game'
+          )}
         </button>
       </div>
     </main>

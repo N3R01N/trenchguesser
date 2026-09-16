@@ -115,15 +115,26 @@ let cached: Store | null = null;
 export function store(): Store {
   if (cached) return cached;
 
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // Vercel names these KV_REST_API_* when the Redis store is connected through
+  // the dashboard, and UPSTASH_REDIS_REST_* when the credentials come straight
+  // from Upstash. Both carry the same REST URL and token.
+  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
 
   if (url && token) {
+    // REDIS_URL is the rediss:// protocol endpoint and will not work here.
+    if (!url.startsWith('http')) {
+      throw new Error(
+        `Redis URL must be the REST endpoint (https://...), got "${url.slice(0, 12)}..."`,
+      );
+    }
     cached = upstashStore(url, token);
   } else {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
-        'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production',
+        'Redis credentials are required in production: set UPSTASH_REDIS_REST_URL ' +
+          'and UPSTASH_REDIS_REST_TOKEN, or KV_REST_API_URL and KV_REST_API_TOKEN',
       );
     }
     console.warn('[store] no Upstash credentials — using in-memory store');

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { PublicState } from '@/lib/room.ts';
 import type { Player } from '@/lib/types.ts';
 import { badgesFor } from '@/lib/badges.ts';
@@ -153,6 +154,69 @@ export function RoundDots({ state }: { state: PublicState }) {
       {Array.from({ length: state.totalRounds }, (_, i) => (
         <span key={i} className={`dot${i < state.roundNo ? ' filled' : ''}`} />
       ))}
+    </div>
+  );
+}
+
+/**
+ * Under prefers-reduced-motion the global rule collapses every animation to
+ * 0.01ms, so this stops spinning and reads as a plain ring. WaitNote's ticking
+ * counter is what carries "still working" in that case.
+ */
+export function Spinner({ size = 18 }: { size?: number }) {
+  return (
+    <span
+      className="spinner"
+      style={{ width: size, height: size }}
+      role="status"
+      aria-label="Loading"
+    />
+  );
+}
+
+export interface WaitStage {
+  /** Seconds elapsed at which this line takes over. */
+  after: number;
+  text: string;
+}
+
+/**
+ * An indeterminate wait that visibly moves. The server reports no progress, so
+ * the stages are timed against what the pipeline actually does rather than a
+ * measured percentage — the counter next to them is the honest part, and it is
+ * there so a long cold build never looks like a dead button.
+ */
+export function WaitNote({
+  stages,
+  title,
+}: {
+  stages: WaitStage[];
+  title: string;
+}) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const started = Date.now();
+    const id = setInterval(
+      () => setElapsed(Math.floor((Date.now() - started) / 1000)),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, []);
+
+  const stage = stages.reduce(
+    (best, s) => (elapsed >= s.after ? s : best),
+    stages[0],
+  );
+
+  return (
+    <div className="wait" aria-live="polite">
+      <Spinner />
+      <div className="wait-text">
+        <div className="wait-title">{title}</div>
+        <div className="muted">{stage?.text}</div>
+      </div>
+      <span className="wait-elapsed mono">{elapsed}s</span>
     </div>
   );
 }

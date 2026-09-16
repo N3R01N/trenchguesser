@@ -11,6 +11,7 @@ import { Guess } from './phases/Guess.tsx';
 import { Reveal } from './phases/Reveal.tsx';
 import { Standings } from './phases/Standings.tsx';
 import { Final } from './phases/Final.tsx';
+import { Spinner } from './ui.tsx';
 
 export function Game({ code }: { code: string }) {
   const [you, setYou] = useState<string | null>(null);
@@ -105,7 +106,8 @@ export function Game({ code }: { code: string }) {
   if (!ready || (loading && !state)) {
     return (
       <main className="screen center" style={{ justifyContent: 'center' }}>
-        <p className="muted">Loading…</p>
+        <Spinner size={28} />
+        <p className="muted">Loading the game…</p>
       </main>
     );
   }

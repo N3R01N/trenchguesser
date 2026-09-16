@@ -36,7 +36,11 @@ updates."
 
 1. Push the repo and import it at [vercel.com/new](https://vercel.com/new).
 2. Add a Redis store: **Storage → Marketplace → Upstash for Redis**. Connecting
-   it sets `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for you.
+   it injects the credentials itself, under either `UPSTASH_REDIS_REST_URL` and
+   `UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_URL` and `KV_REST_API_TOKEN`
+   depending on how the store was added. The app reads both pairs, so nothing
+   needs renaming. `REDIS_URL` is the `rediss://` protocol endpoint and is not
+   used — the client speaks REST.
 3. Add `COINGECKO_API_KEY` under **Settings → Environment Variables**.
 4. Deploy.
 

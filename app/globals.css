@@ -529,10 +529,63 @@ input[type='range']::-moz-range-thumb {
   background: var(--accent);
 }
 
+.spinner {
+  display: inline-block;
+  flex: none;
+  border: 2px solid var(--border-2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The accent ring vanishes against an accent-filled button. */
+.btn-primary .spinner {
+  border-color: rgba(6, 32, 31, 0.25);
+  border-top-color: #06201f;
+}
+
+.wait {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.wait-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.wait-title {
+  font-weight: 600;
+}
+
+.wait-elapsed {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* The blanket rule above would spin this ~100x a second. Hold it still and
+     let the elapsed counter show that the wait is still alive. */
+  .spinner {
+    animation: none !important;
+    border-top-color: var(--border-2);
   }
 }
 
