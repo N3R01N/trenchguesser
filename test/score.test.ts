@@ -9,7 +9,7 @@ import {
   scoreRound,
   countCategoryWins,
 } from '../lib/score.ts';
-import type { Category, Guess } from '../lib/types.ts';
+import { OVER_CAP_GUESS, type Category, type Guess } from '../lib/types.ts';
 
 const truth = (over: Partial<Record<Category, number>> = {}) => ({
   price: 0.000637,
@@ -297,18 +297,36 @@ describe('a category where zero is an answer', () => {
     assert.equal(r.outcomes[0]?.errors.a, null, 'it never became a submission');
   });
 
-  test('missing it together is a tie, not a prize for the lowest guess', () => {
-    // The bug this pins: on the log axis every price is measured against the
-    // clamped floor, so the smallest number was "closest" to never having sold.
+  test('failing that, the lowest guess was closest to worth nothing', () => {
     const r = scoreRound(
       ['a', 'b', 'c'],
       ['lastSale'],
       never,
       g({ a: { lastSale: 1 }, b: { lastSale: 315 }, c: { lastSale: 0.0239 } }),
     );
-    assert.deepEqual(r.outcomes[0]?.winners, ['a', 'b', 'c'], 'all equally wrong');
+    assert.deepEqual(r.outcomes[0]?.winners, ['c'], 'nobody called it, so nearest wins');
     assert.equal(sum(r.delta), 0);
-    assert.equal(r.delta.c, 0, 'lowballing wins nothing');
+  });
+
+  test('and above the cap the highest guess takes it, named or not', () => {
+    // The three sales that live over 5,000 ETH: the real record and two stunts.
+    for (const actual of [8_000, 24_000, 124_457]) {
+      const r = scoreRound(
+        ['low', 'pinned', 'bucket'],
+        ['highSale'],
+        { highSale: actual },
+        g({
+          low: { highSale: 40 },
+          pinned: { highSale: 5_000 },
+          bucket: { highSale: OVER_CAP_GUESS },
+        }),
+      );
+      assert.deepEqual(
+        r.outcomes[0]?.winners,
+        ['bucket'],
+        `saying "over" should beat pinning the slider at ${actual} ETH`,
+      );
+    }
   });
 
   test('one player calling it takes the category off everyone else', () => {

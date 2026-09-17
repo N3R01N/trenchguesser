@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { buzz, post } from '@/lib/client.ts';
 import type { PublicRound, PublicState } from '@/lib/room.ts';
 import {
+  ART,
+  INTRO_ART_SIZE,
   CATEGORY_BOUNDS,
   CATEGORY_LABELS,
   CATEGORY_OVER_CAP,
@@ -17,7 +19,7 @@ import {
 } from '@/lib/types.ts';
 import { amount, decadeLabel } from '@/lib/format.ts';
 import { prefersReducedMotion, useWakeLock } from '@/lib/motion.ts';
-import { CoinHeader, TimerRing } from '../ui.tsx';
+import { CoinHeader, TimerRing, type Art } from '../ui.tsx';
 
 const STEPS = 1000;
 
@@ -87,6 +89,7 @@ export function Guess({
         introMs={introMs}
         rankedBy={RANKED_BY[state.config.mode]}
         rankLabel={RANK_LABEL[state.config.mode]}
+        art={{ ...ART[state.config.mode], size: INTRO_ART_SIZE[state.config.mode] }}
       />
     );
   }
@@ -101,6 +104,7 @@ export function Guess({
           coin={round.coin}
           rank={round.rank}
           rankedBy={RANKED_BY[state.config.mode]}
+          art={ART[state.config.mode]}
         />
         <TimerRing ms={ms ?? 0} totalMs={round.durationMs} size={72} />
       </div>
@@ -164,11 +168,13 @@ function CoinIntro({
   introMs,
   rankedBy,
   rankLabel,
+  art,
 }: {
   round: PublicRound;
   introMs: number;
   rankedBy: string;
   rankLabel: string;
+  art: Art;
 }) {
   const progress = 1 - introMs / SPIN_SETTLE_MS;
   const settling = progress < 0.5 && !prefersReducedMotion();
@@ -204,7 +210,12 @@ function CoinIntro({
         </div>
 
         <div className={`intro-coin${settling ? '' : ' is-in'}`}>
-          <CoinHeader coin={round.coin} rank={round.rank} rankedBy={rankedBy} />
+          <CoinHeader
+            coin={round.coin}
+            rank={round.rank}
+            rankedBy={rankedBy}
+            art={art}
+          />
         </div>
       </div>
 

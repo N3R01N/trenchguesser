@@ -15,16 +15,6 @@ const ERROR_EPSILON = 1e-9;
 /** log10(0) is -Infinity; clamp so a zero guess is merely terrible, not fatal. */
 const VALUE_FLOOR = 1e-12;
 
-/**
- * How wrong a number is when the answer was not a number.
- *
- * "Never sold" is a claim, not a quantity, so every price misses it by the same
- * amount. Scoring it on the axis instead would measure each guess against the
- * floor the axis clamps to, and hand the category to whoever lowballed hardest
- * — rewarding exactly what log-squared error exists to stop rewarding. Missing
- * it together is a tie, and a tie moves nobody.
- */
-const CATEGORICAL_MISS = 1e6;
 
 /** A value only scores if it is a real positive number — the log axis needs one. */
 function usable(v: number | undefined): v is number {
@@ -136,21 +126,21 @@ export function scoreRound(
 
   for (const cat of cats) {
     const actual = truth[cat];
-    // The answer is a word rather than a number, so nearness does not apply.
-    const categorical = actual === 0 && zeroMeans(cat) !== undefined;
     const errors: Record<string, number | null> = {};
 
+    /**
+     * Everything is scored on the axis, including the answers that are not
+     * numbers, and the axis is left to rank the near misses.
+     *
+     * A punk that never sold sits at the floor log10 clamps to, so calling it
+     * outright is exact and, failing that, the lowest guess is the closest —
+     * whoever was most nearly right that it was worth nothing. A sale above the
+     * slider sits off the top, so the highest guess takes it. Nobody has to
+     * have named the bucket for someone to have been closest to it.
+     */
     for (const id of playerIds) {
       const raw = guesses[id]?.values?.[cat];
-      if (!answered(cat, raw)) {
-        errors[id] = null;
-        continue;
-      }
-      errors[id] = categorical
-        ? raw === 0
-          ? 0
-          : CATEGORICAL_MISS
-        : logError(raw, actual);
+      errors[id] = answered(cat, raw) ? logError(raw, actual) : null;
     }
 
     const submitted = playerIds.filter((id) => errors[id] !== null);

@@ -59,22 +59,44 @@ export function TimerRing({
   );
 }
 
+export interface Art {
+  round: boolean;
+  pixel: boolean;
+  size: number;
+}
+
+const DEFAULT_ART: Art = { round: true, pixel: false, size: 48 };
+
 export function CoinHeader({
   coin,
   rank,
   rankedBy = 'market cap',
+  art = DEFAULT_ART,
 }: {
   coin: { s: string; n: string; img: string };
   rank: number;
   rankedBy?: string;
+  art?: Art;
 }) {
+  const { size } = art;
+  const cls =
+    `coin${size >= 120 ? ' is-large' : ''}` +
+    `${art.round ? '' : ' is-square'}${art.pixel ? ' is-pixel' : ''}`;
+
   return (
-    <div className="coin">
+    <div className={cls}>
       {coin.img ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={coin.img} alt="" width={48} height={48} />
+        <img src={coin.img} alt="" width={size} height={size} />
       ) : (
-        <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--surface-2)' }} />
+        <div
+          style={{
+            width: size,
+            height: size,
+            borderRadius: art.round ? '50%' : 10,
+            background: 'var(--surface-2)',
+          }}
+        />
       )}
       <div>
         {rankedBy ? (

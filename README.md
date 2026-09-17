@@ -89,11 +89,14 @@ Two answers are not numbers, which is most of what makes this mode different:
   record and two flash-loan stunts at 24,000 and 124,457. The slider stops at
   5,000 and the answer above it is a bucket.
 
-A categorical answer is scored as a claim, not a distance. Every price is
-equally wrong about a punk that never sold — scoring it on the axis would have
-measured each guess against the floor the axis clamps to and handed the round to
-whoever lowballed hardest, which is the one thing log-squared error exists to
-prevent.
+Both are scored on the same axis as everything else, and the axis is left to
+rank the near misses. Calling "never sold" outright is exact; failing that, the
+lowest guess wins, because it was most nearly right that the punk was worth
+nothing. A sale above the cap sits off the top of the axis, so the highest guess
+takes it — and `OVER_CAP_GUESS` is tuned so that *saying* "over" beats pinning
+the slider at 5,000 for all three sales that live up there, rewarding the call
+rather than a guess at how far over. Nobody has to have named a bucket for
+someone to have been closest to it.
 
 The reveal carries the date of both the last and the highest sale. It has to:
 only 10% of punks have sold in the last year and 60% last changed hands four or
@@ -149,7 +152,7 @@ Note that Vercel's Hobby plan is for personal, non-commercial projects.
 
 ```bash
 npm run dev          # local server
-npm test             # 84 tests, no test framework — node --test runs the TS directly
+npm test             # 85 tests, no test framework — node --test runs the TS directly
 npm run snapshot     # rebuild the coin universe and print what it found
 npm run snapshot:nft # rebuild the collection ladder, and measure the dead rate
 npm run snapshot:punks # rebuild the punk sale history and report the split

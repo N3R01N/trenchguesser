@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { PublicState } from '@/lib/room.ts';
 import {
+  ART,
   CATEGORY_LABELS,
   CATEGORY_UNITS,
   RANKED_BY,
@@ -57,6 +58,7 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
           coin={round.coin}
           rank={round.rank}
           rankedBy={RANKED_BY[state.config.mode]}
+          art={ART[state.config.mode]}
         />
         <span className="label">{spinner?.name} spun it</span>
       </div>

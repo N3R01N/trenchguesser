@@ -79,10 +79,32 @@ export const CATEGORY_OVER_CAP: Partial<Record<Category, number>> = {
 /**
  * What an over-the-cap answer submits.
  *
- * Roughly the geometric middle of the three sales that live up there, so the
- * bucket beats a pinned slider for two of them and loses narrowly on the third.
+ * Chosen so that naming the bucket beats pinning the slider at 5,000 for every
+ * sale that actually lives above it — 8,000, 24,000 and 124,457 ETH. On the log
+ * axis that needs a value between the cap and about 12,800, so anyone who says
+ * "over" is rewarded for saying it rather than for guessing how far over.
  */
-export const OVER_CAP_GUESS = 25_000;
+export const OVER_CAP_GUESS = 10_000;
+
+/**
+ * How an entry's picture wants to be shown.
+ *
+ * A token logo is a circle by convention. A punk is 24x24 pixel art blown up to
+ * 1024, and its traits are the entire guess — an alien is worth a thousand
+ * plain males — so it gets room and hard edges instead of a cropped thumbnail.
+ */
+export const ART: Record<UniverseKey, { round: boolean; pixel: boolean; size: number }> = {
+  coins: { round: true, pixel: false, size: 48 },
+  nfts: { round: true, pixel: false, size: 48 },
+  punks: { round: false, pixel: true, size: 64 },
+};
+
+/** The picture gets the screen to itself on the beat before the sliders. */
+export const INTRO_ART_SIZE: Record<UniverseKey, number> = {
+  coins: 48,
+  nfts: 48,
+  punks: 168,
+};
 
 /**
  * Slider bounds per category, in orders of magnitude.
