@@ -15,6 +15,28 @@ export const CATEGORIES = [
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 
+/**
+ * What a category's numbers are counted in.
+ *
+ * Coins are priced in dollars, collections in ETH — a floor is never quoted in
+ * anything else — and owners and sales are not money at all, so they carry no
+ * prefix. The unit rides with the category rather than with the universe,
+ * because one round can mix money and counts.
+ */
+export type Unit = 'usd' | 'eth' | 'count';
+
+export const CATEGORY_UNITS: Record<Category, Unit> = {
+  price: 'usd',
+  mcap: 'usd',
+  ath: 'usd',
+  fdv: 'usd',
+  vol: 'usd',
+  floor: 'eth',
+  atvol: 'eth',
+  owners: 'count',
+  sales: 'count',
+};
+
 export const CATEGORY_LABELS: Record<Category, string> = {
   price: 'Price',
   mcap: 'Market cap',
@@ -126,6 +148,19 @@ export const UNIVERSE_RANGES: Record<UniverseKey, Record<RangeKey, Range>> = {
     normal: { label: 'Normal', from: 1, to: 250 },
     degen: { label: 'Degen', from: 1, to: 1000 },
   },
+};
+
+/**
+ * Where a guess stops being good, per universe.
+ *
+ * A coin price spans about thirteen orders of magnitude and an NFT floor about
+ * five, so the same ratio is a far better guess on the collection ladder than
+ * on the coin one. Holding the thresholds equal would make almost every NFT
+ * round read as a bullseye.
+ */
+export const REVEAL_TIERS: Record<UniverseKey, { bullseye: number; close: number; off: number }> = {
+  coins: { bullseye: 1.2, close: 3, off: 10 },
+  nfts: { bullseye: 1.1, close: 2, off: 5 },
 };
 
 /** What one entry is called, for anything a player reads. */

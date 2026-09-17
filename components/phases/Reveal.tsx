@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import type { PublicState } from '@/lib/room.ts';
-import { CATEGORY_LABELS, RANKED_BY, REVEAL_STEP_MS } from '@/lib/types.ts';
-import { offBy, usd } from '@/lib/format.ts';
+import {
+  CATEGORY_LABELS,
+  CATEGORY_UNITS,
+  RANKED_BY,
+  REVEAL_STEP_MS,
+  type Unit,
+} from '@/lib/types.ts';
+import { amount, offBy } from '@/lib/format.ts';
 import { revealTier, type RevealTier } from '@/lib/score.ts';
 import { useCountUp, useStagger } from '@/lib/motion.ts';
 import { buzz } from '@/lib/client.ts';
@@ -33,11 +39,11 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
     const latest = result.outcomes[shown - 1];
     if (!latest) return;
     const mine = round.guesses?.[you]?.values?.[latest.cat] ?? null;
-    if (revealTier(mine, truth[latest.cat]!) === 'bullseye') {
+    if (revealTier(mine, truth[latest.cat]!, state.config.mode) === 'bullseye') {
       setCelebrated(true);
       buzz([18, 50, 18, 50, 34]);
     }
-  }, [shown, celebrated, result.outcomes, round.guesses, truth, you]);
+  }, [shown, celebrated, result.outcomes, round.guesses, truth, you, state.config.mode]);
 
   const spinner = state.players.find((p) => p.id === round.spunBy);
 
@@ -61,7 +67,7 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
           // so its true value is always there.
           const actual = truth[outcome.cat]!;
           const mine = round.guesses?.[you]?.values?.[outcome.cat] ?? null;
-          const tier = revealTier(mine, actual);
+          const tier = revealTier(mine, actual, state.config.mode);
 
           const entries: ScaleEntry[] = state.players.map((p) => ({
             id: p.id,
@@ -80,6 +86,7 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
                   : CATEGORY_LABELS[outcome.cat]
               }
               actual={actual}
+              unit={CATEGORY_UNITS[outcome.cat]}
               mine={mine}
               tier={tier}
               entries={entries}
@@ -112,6 +119,7 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
 function RevealCategory({
   label,
   actual,
+  unit,
   mine,
   tier,
   entries,
@@ -120,6 +128,7 @@ function RevealCategory({
 }: {
   label: string;
   actual: number;
+  unit: Unit;
   mine: number | null;
   tier: RevealTier;
   entries: ScaleEntry[];
@@ -150,9 +159,9 @@ function RevealCategory({
         )}
       </div>
 
-      <span className="reveal-truth mono">{usd(counted)}</span>
+      <span className="reveal-truth mono">{amount(counted, unit)}</span>
 
-      <LogScale truth={actual} entries={entries} show={settled} />
+      <LogScale truth={actual} entries={entries} show={settled} unit={unit} />
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import {
   FDV_MERGE_RATIO,
+  REVEAL_TIERS,
   type Category,
   type CategoryOutcome,
   type Guess,
   type RoundResult,
   type Truth,
+  type UniverseKey,
 } from './types.ts';
 
 /** Float noise must never fake-break a genuine tie. */
@@ -41,12 +43,17 @@ export function ratioOff(guess: number, actual: number): number {
 
 export type RevealTier = 'bullseye' | 'close' | 'off' | 'way-off';
 
-export function revealTier(guess: number | null, actual: number): RevealTier {
+export function revealTier(
+  guess: number | null,
+  actual: number,
+  mode: UniverseKey = 'coins',
+): RevealTier {
   if (guess === null) return 'way-off';
   const r = ratioOff(guess, actual);
-  if (r <= 1.2) return 'bullseye';
-  if (r <= 3) return 'close';
-  if (r <= 10) return 'off';
+  const tier = REVEAL_TIERS[mode];
+  if (r <= tier.bullseye) return 'bullseye';
+  if (r <= tier.close) return 'close';
+  if (r <= tier.off) return 'off';
   return 'way-off';
 }
 

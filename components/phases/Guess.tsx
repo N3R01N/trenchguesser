@@ -5,11 +5,12 @@ import { buzz, post } from '@/lib/client.ts';
 import type { PublicRound, PublicState } from '@/lib/room.ts';
 import {
   CATEGORY_LABELS,
+  CATEGORY_UNITS,
   RANKED_BY,
   SPIN_SETTLE_MS,
   type Category,
 } from '@/lib/types.ts';
-import { decadeLabel, usd } from '@/lib/format.ts';
+import { amount, decadeLabel } from '@/lib/format.ts';
 import { prefersReducedMotion, useWakeLock } from '@/lib/motion.ts';
 import { CoinHeader, TimerRing } from '../ui.tsx';
 
@@ -229,6 +230,7 @@ function LogSlider({
   onChange: (step: number) => void;
 }) {
   const value = toValue(step, cat);
+  const unit = CATEGORY_UNITS[cat];
   const [lo, hi] = BOUNDS[cat];
   const decade = useRef(Math.floor(Math.log10(value)));
 
@@ -251,7 +253,7 @@ function LogSlider({
   return (
     <div className="guess">
       <span className="label">{label}</span>
-      <span className="guess-value">{usd(value)}</span>
+      <span className="guess-value">{amount(value, unit)}</span>
       <input
         type="range"
         min={0}
@@ -260,7 +262,7 @@ function LogSlider({
         value={step}
         disabled={disabled}
         aria-label={label}
-        aria-valuetext={usd(value)}
+        aria-valuetext={amount(value, unit)}
         style={{ '--fill': `${(step / STEPS) * 100}%` } as React.CSSProperties}
         onChange={(e) => handle(Number(e.target.value))}
       />
@@ -272,7 +274,7 @@ function LogSlider({
               left: `${((d - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo))) * 100}%`,
             }}
           >
-            {decadeLabel(d)}
+            {decadeLabel(d, unit)}
           </span>
         ))}
       </div>

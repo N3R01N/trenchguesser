@@ -246,4 +246,26 @@ describe('reveal tiers', () => {
     assert.equal(ratioOff(1000, 100), 10);
     assert.equal(ratioOff(10, 100), 10);
   });
+
+  test('coins stay the default, so nothing about that mode moved', () => {
+    assert.equal(revealTier(119, 100), revealTier(119, 100, 'coins'));
+  });
+
+  test('collections are graded harder, because their axis is narrower', () => {
+    // A coin floor spans ~13 decades and an NFT floor ~5, so the same ratio is
+    // a much better guess on the collection ladder.
+    assert.equal(revealTier(115, 100, 'coins'), 'bullseye');
+    assert.equal(revealTier(115, 100, 'nfts'), 'close');
+
+    assert.equal(revealTier(250, 100, 'coins'), 'close');
+    assert.equal(revealTier(250, 100, 'nfts'), 'off');
+
+    assert.equal(revealTier(900, 100, 'coins'), 'off');
+    assert.equal(revealTier(900, 100, 'nfts'), 'way-off');
+  });
+
+  test('a bullseye is still a bullseye in either universe', () => {
+    assert.equal(revealTier(100, 100, 'nfts'), 'bullseye');
+    assert.equal(revealTier(null, 100, 'nfts'), 'way-off');
+  });
 });

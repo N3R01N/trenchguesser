@@ -1,6 +1,7 @@
 'use client';
 
-import { usd } from '@/lib/format.ts';
+import { amount } from '@/lib/format.ts';
+import type { Unit } from '@/lib/types.ts';
 
 export interface ScaleEntry {
   id: string;
@@ -24,10 +25,12 @@ export function LogScale({
   truth,
   entries,
   show,
+  unit,
 }: {
   truth: number;
   entries: ScaleEntry[];
   show: boolean;
+  unit: Unit;
 }) {
   const centre = Math.log10(Math.max(truth, 1e-12));
   const lo = centre - DECADES;
@@ -70,7 +73,7 @@ export function LogScale({
                   left: show ? `${place(e.guess)}%` : '50%',
                   transitionDelay: `${i * 90}ms`,
                 }}
-                title={usd(e.guess)}
+                title={amount(e.guess, unit)}
               />
             )}
           </span>
@@ -78,9 +81,9 @@ export function LogScale({
       ))}
 
       <div className="scale-legend" aria-hidden="true">
-        <span>{usd(10 ** lo)}</span>
-        <span className="scale-legend-truth">{usd(truth)}</span>
-        <span>{usd(10 ** hi)}</span>
+        <span>{amount(10 ** lo, unit)}</span>
+        <span className="scale-legend-truth">{amount(truth, unit)}</span>
+        <span>{amount(10 ** hi, unit)}</span>
       </div>
     </div>
   );

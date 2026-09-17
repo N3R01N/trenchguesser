@@ -9,8 +9,13 @@
  * fetch and the re-roll survive a real spin.
  */
 import type { PublicState } from '../lib/room.ts';
-import { usd, offBy } from '../lib/format.ts';
-import { DEFAULT_CATEGORIES, type Category, type UniverseKey } from '../lib/types.ts';
+import { amount, offBy } from '../lib/format.ts';
+import {
+  CATEGORY_UNITS,
+  DEFAULT_CATEGORIES,
+  type Category,
+  type UniverseKey,
+} from '../lib/types.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3111';
 const MODE = (process.env.MODE ?? 'coins') as UniverseKey;
@@ -98,11 +103,14 @@ for (let r = 1; r <= ROUNDS; r++) {
   const result = s.round!.result!;
   for (const outcome of result.outcomes) {
     const winners = outcome.winners.map((w) => players[w]).join(', ') || 'nobody';
-    console.log(`   ${outcome.cat.padEnd(6)} ${usd(truth[outcome.cat]!).padEnd(10)} won by ${winners}`);
+    const unit = CATEGORY_UNITS[outcome.cat];
+    console.log(
+      `   ${outcome.cat.padEnd(6)} ${amount(truth[outcome.cat]!, unit).padEnd(12)} won by ${winners}`,
+    );
     for (const id of ids) {
       const g = s.round!.guesses?.[id]?.values?.[outcome.cat] ?? null;
       console.log(
-        `      ${players[id].padEnd(4)} ${(g === null ? '—' : usd(g)).padEnd(10)} ${offBy(g, truth[outcome.cat]!)}`,
+        `      ${players[id].padEnd(4)} ${(g === null ? '—' : amount(g, unit)).padEnd(12)} ${offBy(g, truth[outcome.cat]!)}`,
       );
     }
   }
