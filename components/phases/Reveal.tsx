@@ -33,7 +33,7 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
     const latest = result.outcomes[shown - 1];
     if (!latest) return;
     const mine = round.guesses?.[you]?.values?.[latest.cat] ?? null;
-    if (revealTier(mine, truth[latest.cat]) === 'bullseye') {
+    if (revealTier(mine, truth[latest.cat]!) === 'bullseye') {
       setCelebrated(true);
       buzz([18, 50, 18, 50, 34]);
     }
@@ -53,7 +53,9 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
       <div className="screen-body">
         {result.outcomes.map((outcome, i) => {
           if (i >= shown) return null;
-          const actual = truth[outcome.cat];
+          // An outcome only exists for a category the round actually scored,
+          // so its true value is always there.
+          const actual = truth[outcome.cat]!;
           const mine = round.guesses?.[you]?.values?.[outcome.cat] ?? null;
           const tier = revealTier(mine, actual);
 

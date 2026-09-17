@@ -11,6 +11,26 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   vol: '24h volume',
 };
 
+/**
+ * The numbers under guess for one entry.
+ *
+ * Partial because a universe only fills in its own categories: a coin has no
+ * floor price and an NFT collection has no all-time high.
+ */
+export type Truth = Partial<Record<Category, number>>;
+
+/** One guessable thing. A coin today; an NFT collection is the same shape. */
+export interface Entry {
+  id: string;
+  s: string; // ticker or short label, uppercase
+  n: string; // name
+  img: string;
+  values: Truth;
+}
+
+/** What players are allowed to see before the reveal. */
+export type PublicEntry = Omit<Entry, 'values'>;
+
 /** A coin as stored in the snapshot. Rank is its index in the snapshot, 1-based. */
 export interface Coin {
   id: string;
@@ -24,8 +44,34 @@ export interface Coin {
   vol: number;
 }
 
-/** What players are allowed to see before the reveal. */
-export type PublicCoin = Pick<Coin, 'id' | 's' | 'n' | 'img'>;
+export type PublicCoin = PublicEntry;
+
+/** What a snapshot build produced. The host screen reports it while it waits. */
+export interface SnapshotMeta {
+  builtAt: number;
+  size: number;
+  chunks: number;
+  bytes: number;
+}
+
+export type UniverseKey = 'coins';
+
+/**
+ * A ranked pool of things to guess.
+ *
+ * The game asks for the entry at a rank and scores whatever values come back;
+ * it never learns what kind of thing it is. Each source owns its own crawl, its
+ * own exclusions and its own snapshot keys. Implementations are server-only —
+ * this is the interface, which is erased.
+ */
+export interface UniverseSource {
+  key: UniverseKey;
+  /** Builds the ranked pool when the cached one has aged out. */
+  ensureSnapshot(force?: boolean): Promise<SnapshotMeta>;
+  /** The entry at a 1-based rank, or null when the rank is out of range. */
+  entryAtRank(rank: number): Promise<Entry | null>;
+  snapshotMeta(): Promise<SnapshotMeta | null>;
+}
 
 export const RANGES = {
   noob: { label: 'Noob coin', from: 100, to: 500 },
@@ -102,7 +148,7 @@ export interface Round {
   spunBy: string;
   coin: PublicCoin;
   /** Frozen at spin time. Stripped from every payload until phase === 'reveal'. */
-  truth: Record<Category, number>;
+  truth: Truth;
   /** Effective categories for this round — fdv is dropped when it duplicates mcap. */
   cats: Category[];
   mergedFdv: boolean;

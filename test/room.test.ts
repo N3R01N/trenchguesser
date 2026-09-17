@@ -212,7 +212,7 @@ describe('a full game', () => {
       for (const id of ids) {
         if (rand() < 0.15) continue; // someone goes AFK
         const values: Partial<Record<Category, number>> = {};
-        for (const c of cats) values[c] = truth[c] * 10 ** (rand() * 4 - 2);
+        for (const c of cats) values[c] = truth[c]! * 10 ** (rand() * 4 - 2);
         await submitGuess(room.code, id, values);
       }
 

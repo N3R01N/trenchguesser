@@ -4,12 +4,18 @@ import {
   type CategoryOutcome,
   type Guess,
   type RoundResult,
+  type Truth,
 } from './types.ts';
 
 /** Float noise must never fake-break a genuine tie. */
 const ERROR_EPSILON = 1e-9;
 /** log10(0) is -Infinity; clamp so a zero guess is merely terrible, not fatal. */
 const VALUE_FLOOR = 1e-12;
+
+/** A value only scores if it is a real positive number — the log axis needs one. */
+function usable(v: number | undefined): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0;
+}
 
 /**
  * Squared error on the log axis.
@@ -19,9 +25,9 @@ const VALUE_FLOOR = 1e-12;
  * bounded by the actual value, guessing high is unbounded. On the log axis, being
  * 3x off beats being 13x off in either direction.
  */
-export function logError(guess: number, actual: number): number {
+export function logError(guess: number, actual: number | undefined): number {
   const g = Number.isFinite(guess) && guess > 0 ? guess : VALUE_FLOOR;
-  const a = Number.isFinite(actual) && actual > 0 ? actual : VALUE_FLOOR;
+  const a = usable(actual) ? actual : VALUE_FLOOR;
   const d = Math.log10(g) - Math.log10(a);
   return d * d;
 }
@@ -49,24 +55,32 @@ export function revealTier(guess: number | null, actual: number): RevealTier {
  * would hand a free second point to whoever won market cap, so we drop fdv for
  * the round and tell the client to label the input "Market cap / FDV".
  */
-export function isFdvMerged(truth: Record<Category, number>): boolean {
+export function isFdvMerged(truth: Truth): boolean {
   const { mcap, fdv } = truth;
   if (!mcap || !fdv) return true;
   const ratio = mcap > fdv ? mcap / fdv : fdv / mcap;
   return ratio <= FDV_MERGE_RATIO;
 }
 
-/** The categories actually scored this round, after the FDV merge rule. */
+/**
+ * The categories actually scored this round.
+ *
+ * A category the universe never filled in is dropped before anything else: it
+ * has no true value, so there is nothing to be close to. What survives then goes
+ * through the FDV merge rule.
+ */
 export function effectiveCategories(
   configured: Category[],
-  truth: Record<Category, number>,
+  truth: Truth,
 ): { cats: Category[]; mergedFdv: boolean } {
-  const hasBoth = configured.includes('mcap') && configured.includes('fdv');
-  if (!hasBoth) return { cats: [...configured], mergedFdv: false };
+  const available = configured.filter((c) => usable(truth[c]));
+
+  const hasBoth = available.includes('mcap') && available.includes('fdv');
+  if (!hasBoth) return { cats: available, mergedFdv: false };
 
   const merged = isFdvMerged(truth);
-  if (!merged) return { cats: [...configured], mergedFdv: false };
-  return { cats: configured.filter((c) => c !== 'fdv'), mergedFdv: true };
+  if (!merged) return { cats: available, mergedFdv: false };
+  return { cats: available.filter((c) => c !== 'fdv'), mergedFdv: true };
 }
 
 /**
@@ -80,7 +94,7 @@ export function effectiveCategories(
 export function scoreRound(
   playerIds: string[],
   cats: Category[],
-  truth: Record<Category, number>,
+  truth: Truth,
   guesses: Record<string, Guess>,
 ): RoundResult {
   const delta: Record<string, number> = Object.fromEntries(

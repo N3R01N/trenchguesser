@@ -1,5 +1,5 @@
 import { store } from './redis.ts';
-import { coinAtRank, ensureSnapshot, snapshotMeta } from './coins.ts';
+import { universeFor } from './universe.ts';
 import {
   countCategoryWins,
   effectiveCategories,
@@ -18,6 +18,7 @@ import {
   type Player,
   type Room,
   type Round,
+  type Truth,
 } from './types.ts';
 
 const ROOM_TTL_S = 6 * 60 * 60;
@@ -148,7 +149,7 @@ export async function createRoom(
   hostName: string,
   config: Partial<GameConfig> = {},
 ): Promise<{ room: Room; playerId: string }> {
-  await ensureSnapshot();
+  await universeFor().ensureSnapshot();
 
   const host = newPlayer(hostName);
   const merged: GameConfig = { ...DEFAULT_CONFIG, ...config };
@@ -243,22 +244,19 @@ async function applySpin(
   playerId: string,
   requestedRank: number,
 ): Promise<Room> {
+  const universe = universeFor();
   const { from, to } = RANGES[room.config.range];
-  const meta = await snapshotMeta();
+  const meta = await universe.snapshotMeta();
   const ceiling = Math.min(to, meta?.size ?? to);
   const rank = resolveRank(requestedRank, from, ceiling, room.usedRanks);
 
-  const coin = await coinAtRank(rank);
-  if (!coin) throw new RoomError('Could not resolve that coin', 503);
+  const entry = await universe.entryAtRank(rank);
+  if (!entry) throw new RoomError('Could not resolve that coin', 503);
 
-  const truth: Record<Category, number> = {
-    price: coin.price,
-    mcap: coin.mcap,
-    ath: coin.ath,
-    fdv: coin.fdv,
-    vol: coin.vol,
-  };
+  const truth = entry.values;
   const { cats, mergedFdv } = effectiveCategories(room.config.categories, truth);
+  // Nothing configured survived, so there would be nothing to guess at.
+  if (cats.length === 0) throw new RoomError('Could not resolve that coin', 503);
   const durationMs = roundDuration(room.config.baseRoundMs, cats.length);
 
   const opensAt = Date.now() + SPIN_SETTLE_MS;
@@ -267,7 +265,7 @@ async function applySpin(
     i: roundNo,
     rank,
     spunBy: playerId,
-    coin: { id: coin.id, s: coin.s, n: coin.n, img: coin.img },
+    coin: { id: entry.id, s: entry.s, n: entry.n, img: entry.img },
     truth,
     cats,
     mergedFdv,
@@ -471,7 +469,7 @@ export interface PublicRound {
   durationMs: number;
   opensAt: number;
   /** Null until the round is revealed. */
-  truth: Record<Category, number> | null;
+  truth: Truth | null;
   result: Round['result'];
   /** Null until the round is revealed. */
   guesses: Record<string, Guess> | null;

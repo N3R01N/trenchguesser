@@ -1,5 +1,5 @@
 import { store } from './redis.ts';
-import type { Coin } from './types.ts';
+import type { Coin, Entry, SnapshotMeta, UniverseSource } from './types.ts';
 
 const CG_BASE = 'https://api.coingecko.com/api/v3';
 
@@ -33,13 +33,6 @@ const K = {
   exclusions: 'snap:excl',
   lock: 'snap:lock',
 };
-
-export interface SnapshotMeta {
-  builtAt: number;
-  size: number;
-  chunks: number;
-  bytes: number;
-}
 
 interface MarketRow {
   id: string;
@@ -234,6 +227,31 @@ export async function coinAtRank(rank: number): Promise<Coin | null> {
 export async function snapshotMeta(): Promise<SnapshotMeta | null> {
   return store().get<SnapshotMeta>(K.meta);
 }
+
+/**
+ * The snapshot stores the flat `Coin` shape because it is what CoinGecko hands
+ * back and it keeps a 250-row chunk small; `Entry` is the shape the game scores.
+ */
+function toEntry(c: Coin): Entry {
+  return {
+    id: c.id,
+    s: c.s,
+    n: c.n,
+    img: c.img,
+    values: { price: c.price, mcap: c.mcap, ath: c.ath, fdv: c.fdv, vol: c.vol },
+  };
+}
+
+/** Coins, ranked by their position in our own market-cap crawl. */
+export const coinSource: UniverseSource = {
+  key: 'coins',
+  ensureSnapshot,
+  snapshotMeta,
+  async entryAtRank(rank: number): Promise<Entry | null> {
+    const coin = await coinAtRank(rank);
+    return coin ? toEntry(coin) : null;
+  },
+};
 
 export const UNIVERSE_CONFIG = {
   PER_PAGE,
