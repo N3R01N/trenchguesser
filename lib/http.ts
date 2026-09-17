@@ -32,7 +32,14 @@ export async function readBody<T>(req: Request, schema: ZodType<T>): Promise<T> 
  * One second of shared CDN cache. Because the state payload is identical for
  * every player, a table of phones polling at 1.5s collapses into roughly one
  * origin read per second.
+ *
+ * `max-age=0` is load-bearing: `s-maxage` only binds shared caches, so without
+ * it this response carries no freshness lifetime a browser is told to respect,
+ * and one is free to apply a heuristic instead. Safari does. A phone would poll
+ * on schedule, be handed its own cached copy of a phase that had already ended,
+ * and sit on a screen the rest of the table had left — which is exactly what an
+ * iPhone did after the first round. The CDN still gets its second.
  */
 export const STATE_CACHE_HEADERS = {
-  'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=4',
+  'Cache-Control': 'public, max-age=0, s-maxage=1, stale-while-revalidate=4',
 };

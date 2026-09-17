@@ -108,7 +108,7 @@ Note that Vercel's Hobby plan is for personal, non-commercial projects.
 
 ```bash
 npm run dev          # local server
-npm test             # 69 tests, no test framework — node --test runs the TS directly
+npm test             # 71 tests, no test framework — node --test runs the TS directly
 npm run snapshot     # rebuild the coin universe and print what it found
 npm run snapshot:nft # rebuild the collection ladder, and measure the dead rate
 npm run playthrough  # drive a full game over HTTP against a running server

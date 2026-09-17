@@ -266,6 +266,56 @@ describe('a full game', () => {
   });
 });
 
+describe('when a round ends', () => {
+  test('the clock running out closes it', async () => {
+    await seedUniverse();
+    const { room, playerId: hostId } = await createRoom('Mat', { roundsValue: 3 });
+    const { playerId: anaId } = await joinRoom(room.code, 'Ana');
+    await startGame(room.code, hostId);
+    await spin(room.code, hostId, 700);
+
+    // Nobody has answered, so only the deadline can end it.
+    await assert.rejects(
+      () => advance(room.code, hostId),
+      /Round still running/,
+      'an unanswered round runs its full length',
+    );
+
+    await expirePhase(room.code);
+    const scored = await advance(room.code, hostId);
+    assert.equal(scored.phase, 'reveal');
+  });
+
+  test('everyone locking in closes it too, without waiting out the clock', async () => {
+    await seedUniverse();
+    const { room, playerId: hostId } = await createRoom('Mat', { roundsValue: 3 });
+    const { playerId: anaId } = await joinRoom(room.code, 'Ana');
+    const { playerId: boId } = await joinRoom(room.code, 'Bo');
+    await startGame(room.code, hostId);
+    const spun = await spin(room.code, hostId, 700);
+
+    await submitGuess(room.code, hostId, { price: 1, mcap: 1e6 });
+    await submitGuess(room.code, anaId, { price: 2, mcap: 2e6 });
+
+    // Two of three in: the last player is still entitled to their time.
+    await assert.rejects(
+      () => advance(room.code, hostId),
+      /Round still running/,
+      'one player outstanding keeps the round open',
+    );
+
+    await submitGuess(room.code, boId, { price: 3, mcap: 3e6 });
+
+    const before = Date.now();
+    const scored = await advance(room.code, hostId);
+    assert.equal(scored.phase, 'reveal');
+    assert.ok(
+      before < (spun.phaseEndsAt ?? 0),
+      'and it closed while there was still time on the clock',
+    );
+  });
+});
+
 describe('rank resolution', () => {
   test('an unused rank is taken as-is', () => {
     assert.equal(resolveRank(700, 100, 2500, []), 700);
