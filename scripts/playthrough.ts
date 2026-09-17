@@ -11,6 +11,7 @@
 import type { PublicState } from '../lib/room.ts';
 import { amount, offBy } from '../lib/format.ts';
 import {
+  CATEGORY_BOUNDS,
   CATEGORY_UNITS,
   DEFAULT_CATEGORIES,
   type Category,
@@ -83,8 +84,14 @@ for (let r = 1; r <= ROUNDS; r++) {
   // Everyone guesses, wildly, except Bo in round 2 who goes quiet.
   for (const id of ids) {
     if (r === 2 && id === bo.playerId) continue;
+    // Guess somewhere on the slider the category actually offers, so the
+    // transcript reads like a game rather than like noise.
     const values: Partial<Record<Category, number>> = {};
-    for (const c of round.cats) values[c] = 10 ** (Math.random() * 10 - 4);
+    for (const c of round.cats) {
+      const [lo, hi] = CATEGORY_BOUNDS[c];
+      const t = Math.random();
+      values[c] = 10 ** (Math.log10(lo) + t * (Math.log10(hi) - Math.log10(lo)));
+    }
     await api(`/api/room/${code}/guess`, { playerId: id, values });
   }
 

@@ -37,6 +37,33 @@ export const CATEGORY_UNITS: Record<Category, Unit> = {
   sales: 'count',
 };
 
+/**
+ * Slider bounds per category, in orders of magnitude.
+ *
+ * A log slider is the only input that works here: typing $1,500,000 on a phone
+ * keyboard inside ten seconds is not possible, and because scoring is itself
+ * logarithmic, slider travel maps linearly onto score.
+ */
+export const CATEGORY_BOUNDS: Record<Category, [number, number]> = {
+  price: [1e-9, 1e4],
+  mcap: [1e4, 1e12],
+  ath: [1e-9, 1e5],
+  fdv: [1e4, 1e13],
+  vol: [1e2, 1e11],
+  // NFT collections, denominated in ETH. Far fewer decades than a coin spans,
+  // so guesses cluster harder and rounds run tighter.
+  //
+  // Measured off a live 2,876-deep ladder rather than guessed: floors run from
+  // 0.00024 to 29.7 ETH, all-time volume 269 to 1.38M, owners 220 to 5.3K and
+  // sales 476 to 39K. The bounds sit a little outside that on both sides —
+  // wide enough that a real value is never out of reach, tight enough that the
+  // slider is not mostly dead travel.
+  floor: [1e-5, 1e2],
+  atvol: [1e2, 1e7],
+  owners: [1e2, 1e5],
+  sales: [1e2, 1e6],
+};
+
 export const CATEGORY_LABELS: Record<Category, string> = {
   price: 'Price',
   mcap: 'Market cap',
@@ -145,8 +172,8 @@ export const UNIVERSE_RANGES: Record<UniverseKey, Record<RangeKey, Range>> = {
   },
   nfts: {
     noob: { label: 'Blue chips', from: 1, to: 80 },
-    normal: { label: 'Normal', from: 1, to: 250 },
-    degen: { label: 'Degen', from: 1, to: 1000 },
+    normal: { label: 'Normal', from: 1, to: 400 },
+    degen: { label: 'Degen', from: 1, to: 2500 },
   },
 };
 

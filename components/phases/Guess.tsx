@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { buzz, post } from '@/lib/client.ts';
 import type { PublicRound, PublicState } from '@/lib/room.ts';
 import {
+  CATEGORY_BOUNDS,
   CATEGORY_LABELS,
   CATEGORY_UNITS,
   RANKED_BY,
@@ -14,31 +15,10 @@ import { amount, decadeLabel } from '@/lib/format.ts';
 import { prefersReducedMotion, useWakeLock } from '@/lib/motion.ts';
 import { CoinHeader, TimerRing } from '../ui.tsx';
 
-/**
- * Slider bounds per category, in orders of magnitude.
- *
- * A log slider is the only input that works here: typing $1,500,000 on a phone
- * keyboard inside ten seconds is not possible, and because scoring is itself
- * logarithmic, slider travel maps linearly onto score.
- */
-const BOUNDS: Record<Category, [number, number]> = {
-  price: [1e-9, 1e4],
-  mcap: [1e4, 1e12],
-  ath: [1e-9, 1e5],
-  fdv: [1e4, 1e13],
-  vol: [1e2, 1e11],
-  // NFT collections, denominated in ETH. Far fewer decades than a coin spans,
-  // so guesses cluster harder and rounds run tighter.
-  floor: [1e-3, 1e3],
-  atvol: [1e1, 1e7],
-  owners: [1e1, 1e6],
-  sales: [1e1, 1e7],
-};
-
 const STEPS = 1000;
 
 function toValue(step: number, cat: Category): number {
-  const [lo, hi] = BOUNDS[cat];
+  const [lo, hi] = CATEGORY_BOUNDS[cat];
   const t = step / STEPS;
   return 10 ** (Math.log10(lo) + t * (Math.log10(hi) - Math.log10(lo)));
 }
@@ -231,7 +211,7 @@ function LogSlider({
 }) {
   const value = toValue(step, cat);
   const unit = CATEGORY_UNITS[cat];
-  const [lo, hi] = BOUNDS[cat];
+  const [lo, hi] = CATEGORY_BOUNDS[cat];
   const decade = useRef(Math.floor(Math.log10(value)));
 
   function handle(next: number) {
