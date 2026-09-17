@@ -38,18 +38,31 @@ The two sources have opposite shapes, and that is the whole design:
 |---|---|---|
 | Ranked list | 27 requests, **numbers included** | 30 requests, **no numbers at all** |
 | Per-entity numbers | free, in the list | one request each, at spin time |
-| Budget | 10,000 credits/month | 600 requests/hour on a free key |
+| Budget | 10,000 credits/month | 120 per sub-minute window |
 
 OpenSea's ranked list carries names and art but no floor price, and there is no
-batched stats endpoint. Pricing a thousand collections up front would cost a
-thousand requests, so NFT mode stores only the ladder and fetches the numbers
-for the one collection a spin lands on. A 100-round game is about 115 requests.
+batched stats endpoint. Pricing the whole ladder up front would cost one request
+per collection, so NFT mode stores only the ladder and fetches the numbers for
+the one collection a spin lands on: **30 requests to build, one per round.** A
+100-round game costs about 135.
 
 That trade has one consequence worth knowing: **the build can no longer filter
 on numbers it hasn't fetched.** A collection with no floor is only discovered on
 landing, so `applySpin` walks to the next rank and burns the dead one. What can
 be filtered up front — unverified, NSFW, disabled, art-less — is, because that
 all arrives in the cheap list call.
+
+Measured against the live API rather than assumed: thirty pages yield **2,876
+collections**, 96% of raw rows clear the filters (`/collections/top` is already
+curated, so the safelist filter does less work than you would expect), and
+**5% of the ladder comes back unguessable** — so a round costs 1.05 requests on
+average. Slider bounds are set from the same crawl: floors run 0.00024 to 29.7
+ETH, all-time volume 269 to 1.38M, owners 220 to 5.3K, sales 476 to 39K.
+
+The documented 600/hour is not what a key reports. `X-RateLimit-Limit` comes
+back as 120 against a sub-minute reset, and 67 requests in 40 seconds drew no
+429 at all — far more headroom than this game asks for. `lib/nfts.ts` backs off
+to `X-RateLimit-Reset` rather than trusting any of these numbers.
 
 ## The API key is not optional
 
@@ -87,9 +100,9 @@ Note that Vercel's Hobby plan is for personal, non-commercial projects.
 | Resource | Ceiling | This uses |
 |---|---|---|
 | CoinGecko credits | 10,000/mo | ~7,000/mo |
-| OpenSea requests | 600/hr | ~20/ladder + ~1/round |
+| OpenSea requests | 120/window | ~30/ladder/day + ~1.05/round |
 | Upstash commands | 500,000/mo | ~1,200/game |
-| Upstash storage | 256 MB | ~550 KB |
+| Upstash storage | 256 MB | ~1.1 MB (both snapshots) |
 
 ## Scripts
 
