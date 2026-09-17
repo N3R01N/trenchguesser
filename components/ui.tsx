@@ -77,9 +77,11 @@ export function CoinHeader({
         <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--surface-2)' }} />
       )}
       <div>
-        <div className="coin-rank">
-          #{rank} by {rankedBy}
-        </div>
+        {rankedBy ? (
+          <div className="coin-rank">
+            #{rank} by {rankedBy}
+          </div>
+        ) : null}
         <div className="coin-name">{coin.n}</div>
         <div className="coin-ticker">{coin.s}</div>
       </div>

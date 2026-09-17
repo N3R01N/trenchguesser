@@ -1,5 +1,6 @@
 import { coinSource } from './coins.ts';
 import { nftSource } from './nfts.ts';
+import { punkSource } from './punks.ts';
 import type { UniverseKey, UniverseSource } from './types.ts';
 
 /**
@@ -15,6 +16,7 @@ export const DEFAULT_UNIVERSE: UniverseKey = 'coins';
 const SOURCES: Record<UniverseKey, UniverseSource> = {
   coins: coinSource,
   nfts: nftSource,
+  punks: punkSource,
 };
 
 export function universeFor(key: UniverseKey = DEFAULT_UNIVERSE): UniverseSource {

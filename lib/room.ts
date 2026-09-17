@@ -18,6 +18,7 @@ import {
   SPIN_SETTLE_MS,
   UNIVERSE_RANGES,
   roundDuration,
+  zeroMeans,
   type Category,
   type Entry,
   type GameConfig,
@@ -140,7 +141,9 @@ export function resolveRank(
   to: number,
   used: number[],
 ): number {
-  const lo = Math.max(1, from);
+  // Punk indices start at zero; every other universe starts at one or above,
+  // so the floor is the range's own rather than a hardcoded first rank.
+  const lo = Math.max(0, from);
   const hi = Math.max(lo, to);
   const wanted = Math.min(hi, Math.max(lo, Math.round(requested)));
   const taken = new Set(used);
@@ -306,6 +309,7 @@ async function applySpin(
     spunBy: playerId,
     coin: { id: entry.id, s: entry.s, n: entry.n, img: entry.img },
     truth,
+    notes: entry.notes ?? {},
     cats,
     mergedFdv,
     durationMs,
@@ -343,7 +347,8 @@ export async function submitGuess(
   const clean: Partial<Record<Category, number>> = {};
   for (const cat of room.round.cats) {
     const v = values[cat];
-    if (typeof v === 'number' && Number.isFinite(v) && v > 0) clean[cat] = v;
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+    if (v > 0 || (v === 0 && zeroMeans(cat))) clean[cat] = v;
   }
 
   const guess: Guess = { at: Date.now(), values: clean };
@@ -519,6 +524,8 @@ export interface PublicRound {
   opensAt: number;
   /** Null until the round is revealed. */
   truth: Truth | null;
+  /** Null until the round is revealed — a sale date narrows the price. */
+  notes: Partial<Record<Category, string>> | null;
   result: Round['result'];
   /** Null until the round is revealed. */
   guesses: Record<string, Guess> | null;
@@ -563,6 +570,7 @@ export async function publicState(code: string): Promise<PublicState> {
           durationMs: round.durationMs,
           opensAt: round.opensAt,
           truth: revealed ? round.truth : null,
+          notes: revealed ? round.notes : null,
           result: revealed ? round.result : null,
           guesses,
         }

@@ -73,8 +73,15 @@ export function amount(n: number, unit: Unit): string {
 }
 
 /** "12.7x too low" / "spot on" — the phrase under a revealed guess. */
-export function offBy(guess: number | null, actual: number): string {
+export function offBy(guess: number | null, actual: number, zeroLabel?: string): string {
   if (guess === null) return 'no guess';
+
+  // Zero is an answer, not a quantity — a ratio against it means nothing.
+  if (zeroLabel && (guess === 0 || actual === 0)) {
+    if (guess === 0 && actual === 0) return 'spot on';
+    return guess === 0 ? `said ${zeroLabel.toLowerCase()}` : 'it never sold';
+  }
+
   const ratio = guess > actual ? guess / actual : actual / guess;
   if (ratio < 1.02) return 'spot on';
   const dir = guess > actual ? 'too high' : 'too low';

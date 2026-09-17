@@ -22,11 +22,12 @@ The first room you create builds the coin universe, which crawls 27 pages of the
 CoinGecko API and takes about 45 seconds. Every room after that is instant until
 the snapshot ages out.
 
-## Two modes
+## Three modes
 
 **Coins** spins a market-cap rank and guesses price, market cap, ATH, FDV and
 24h volume. **NFTs** spins an all-time-volume rank over Ethereum collections and
-guesses floor price, all-time volume, owners and sales.
+guesses floor price, all-time volume, owners and sales. **Punks** spins a
+CryptoPunk's own index, 0–9999, and guesses what it last sold for.
 
 They are the same game over a different universe. `lib/universe.ts` picks the
 source; everything downstream — the state machine, scoring, every screen — is
@@ -58,6 +59,45 @@ curated, so the safelist filter does less work than you would expect), and
 **5% of the ladder comes back unguessable** — so a round costs 1.05 requests on
 average. Slider bounds are set from the same crawl: floors run 0.00024 to 29.7
 ETH, all-time volume 269 to 1.38M, owners 220 to 5.3K, sales 476 to 39K.
+
+### Punks
+
+The number on the reel is the punk itself rather than a position in a ladder,
+because a punk's index says nothing about its value — so this mode has no
+difficulty tiers and the host screen hides the control.
+
+Prices come from `cryptopunks.app`, which documents its own API at `/llms.txt`.
+No key, no auth. One crawl of `action=all-sales` walks the entire history —
+**31 pages, ~30,500 sales back to June 2017, about 17 seconds** — and folds it
+into one row per punk. After that **a round costs nothing**: the prices are
+local and the image is a URL the phone fetches itself, served `immutable`.
+
+Three of its documented endpoints do not do what the docs say, so only the
+crawl is trusted: `/details?includeHistory=true` returns no history at all,
+`batch-recent-history` caps at three rows per punk, and `hasNextPage` is `false`
+on every page including the first. The crawl stops when a page stops adding
+anything rather than when the API claims to be done.
+
+Two answers are not numbers, which is most of what makes this mode different:
+
+- **Never sold.** 2,395 punks (24%) have never sold at a real price, and another
+  4% of the sale history is recorded at exactly 0 ETH — an artefact of the punk
+  contract, where accepting a bid emits a zero-value sale. Rather than drop
+  those punks, zero is one of the things you can be right about, so all ten
+  thousand are playable and nothing needs re-rolling.
+- **Over 5,000 ETH.** Three sales in history clear it: the genuine 8,000 ETH
+  record and two flash-loan stunts at 24,000 and 124,457. The slider stops at
+  5,000 and the answer above it is a bucket.
+
+A categorical answer is scored as a claim, not a distance. Every price is
+equally wrong about a punk that never sold — scoring it on the axis would have
+measured each guess against the floor the axis clamps to and handed the round to
+whoever lowballed hardest, which is the one thing log-squared error exists to
+prevent.
+
+The reveal carries the date of both the last and the highest sale. It has to:
+only 10% of punks have sold in the last year and 60% last changed hands four or
+more years ago, so 45 ETH in 2021 and 45 ETH today are not the same claim.
 
 The documented 600/hour is not what a key reports. `X-RateLimit-Limit` comes
 back as 120 against a sub-minute reset, and 67 requests in 40 seconds drew no
@@ -101,16 +141,18 @@ Note that Vercel's Hobby plan is for personal, non-commercial projects.
 |---|---|---|
 | CoinGecko credits | 10,000/mo | ~7,000/mo |
 | OpenSea requests | 120/window | ~30/ladder/day + ~1.05/round |
+| cryptopunks.app | undocumented | ~31/history + 0/round |
 | Upstash commands | 500,000/mo | ~1,200/game |
-| Upstash storage | 256 MB | ~1.1 MB (both snapshots) |
+| Upstash storage | 256 MB | ~1.8 MB (all three snapshots) |
 
 ## Scripts
 
 ```bash
 npm run dev          # local server
-npm test             # 76 tests, no test framework — node --test runs the TS directly
+npm test             # 84 tests, no test framework — node --test runs the TS directly
 npm run snapshot     # rebuild the coin universe and print what it found
 npm run snapshot:nft # rebuild the collection ladder, and measure the dead rate
+npm run snapshot:punks # rebuild the punk sale history and report the split
 npm run playthrough  # drive a full game over HTTP against a running server
 ```
 
@@ -120,6 +162,7 @@ npm run playthrough  # drive a full game over HTTP against a running server
 npm run dev &
 BASE=http://localhost:3000 npm run playthrough
 MODE=nfts BASE=http://localhost:3000 npm run playthrough
+MODE=punks BASE=http://localhost:3000 npm run playthrough
 ```
 
 ## How it fits together
@@ -130,6 +173,7 @@ lib/score.ts        log-squared error, winner/loser split, FDV merge, reveal tie
 lib/universe.ts     which source a game draws from (server only)
 lib/coins.ts        CoinGecko: crawl, exclude, filter, chunk, lazy rebuild
 lib/nfts.ts         OpenSea: the ladder up front, the numbers per round
+lib/punks.ts        cryptopunks.app: the whole sale history, folded per punk
 lib/room.ts         the game state machine (server only)
 lib/useRoomState.ts polling hook — the transport seam
 components/phases/  one file per screen

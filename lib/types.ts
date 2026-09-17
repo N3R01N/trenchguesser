@@ -12,6 +12,10 @@ export const CATEGORIES = [
   'atvol',
   'owners',
   'sales',
+  // cryptopunks
+  'lastSale',
+  'highSale',
+  'lowSale',
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 
@@ -35,7 +39,50 @@ export const CATEGORY_UNITS: Record<Category, Unit> = {
   atvol: 'eth',
   owners: 'count',
   sales: 'count',
+  lastSale: 'eth',
+  highSale: 'eth',
+  lowSale: 'eth',
 };
+
+/**
+ * Categories where zero is an answer rather than missing data.
+ *
+ * Three quarters of punks have sold and a quarter never have, so "never sold"
+ * is one of the things you can be right about. The label is what the button
+ * says; a category without one treats zero as no value at all, which is what
+ * every coin and collection category wants.
+ */
+export const CATEGORY_ZERO_LABEL: Partial<Record<Category, string>> = {
+  lastSale: 'Never sold',
+  highSale: 'Never sold',
+  lowSale: 'Never sold',
+};
+
+export function zeroMeans(cat: Category): string | undefined {
+  return CATEGORY_ZERO_LABEL[cat];
+}
+
+/**
+ * Categories whose slider stops short of the real maximum.
+ *
+ * Punk sales run to 124,457 ETH, but only three in the whole history clear
+ * 5,000 — the genuine record at 8,000 and two flash-loan stunts. Stretching the
+ * axis to hold them would waste most of the slider on prices nothing has, so
+ * the truth keeps its real value and the answer above the cap is a bucket.
+ */
+export const CATEGORY_OVER_CAP: Partial<Record<Category, number>> = {
+  lastSale: 5_000,
+  highSale: 5_000,
+  lowSale: 5_000,
+};
+
+/**
+ * What an over-the-cap answer submits.
+ *
+ * Roughly the geometric middle of the three sales that live up there, so the
+ * bucket beats a pinned slider for two of them and loses narrowly on the third.
+ */
+export const OVER_CAP_GUESS = 25_000;
 
 /**
  * Slider bounds per category, in orders of magnitude.
@@ -62,6 +109,11 @@ export const CATEGORY_BOUNDS: Record<Category, [number, number]> = {
   atvol: [1e2, 1e7],
   owners: [1e2, 1e5],
   sales: [1e2, 1e6],
+  // Punk sales run 0.01 to 4,850 ETH across 5.7 decades. The slider stops at
+  // 5,000; the three sales above it are answered with a bucket, not aimed at.
+  lastSale: [1e-2, 5e3],
+  highSale: [1e-2, 5e3],
+  lowSale: [1e-2, 5e3],
 };
 
 export const CATEGORY_LABELS: Record<Category, string> = {
@@ -74,6 +126,9 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   atvol: 'All-time volume',
   owners: 'Owners',
   sales: 'Sales',
+  lastSale: 'Last sale',
+  highSale: 'Highest sale',
+  lowSale: 'Lowest sale',
 };
 
 /**
@@ -91,6 +146,12 @@ export interface Entry {
   n: string; // name
   img: string;
   values: Truth;
+  /**
+   * Per-category asides revealed with the truth — the date a punk's last sale
+   * happened, say. Withheld until the reveal for the same reason the numbers
+   * are: a 2021 date narrows a price to within a decade.
+   */
+  notes?: Partial<Record<Category, string>>;
 }
 
 /** What players are allowed to see before the reveal. */
@@ -119,7 +180,8 @@ export interface SnapshotMeta {
   bytes: number;
 }
 
-export type UniverseKey = 'coins' | 'nfts';
+export const UNIVERSE_KEYS = ['coins', 'nfts', 'punks'] as const;
+export type UniverseKey = (typeof UNIVERSE_KEYS)[number];
 
 /**
  * What each universe can actually fill in.
@@ -130,6 +192,7 @@ export type UniverseKey = 'coins' | 'nfts';
 export const UNIVERSE_CATEGORIES: Record<UniverseKey, readonly Category[]> = {
   coins: ['price', 'mcap', 'ath', 'fdv', 'vol'],
   nfts: ['floor', 'atvol', 'owners', 'sales'],
+  punks: ['lastSale', 'highSale', 'lowSale'],
 };
 
 /**
@@ -175,6 +238,16 @@ export const UNIVERSE_RANGES: Record<UniverseKey, Record<RangeKey, Range>> = {
     normal: { label: 'Normal', from: 1, to: 500 },
     degen: { label: 'Degen', from: 1, to: 1000 },
   },
+  /**
+   * A punk's index says nothing about what it is worth, so there is no harder
+   * or easier end of this ladder to pick. All three tiers are the whole set,
+   * and the host screen hides the choice rather than offering three of the same.
+   */
+  punks: {
+    noob: { label: 'All punks', from: 0, to: 9999 },
+    normal: { label: 'All punks', from: 0, to: 9999 },
+    degen: { label: 'All punks', from: 0, to: 9999 },
+  },
 };
 
 /**
@@ -188,23 +261,34 @@ export const UNIVERSE_RANGES: Record<UniverseKey, Record<RangeKey, Range>> = {
 export const REVEAL_TIERS: Record<UniverseKey, { bullseye: number; close: number; off: number }> = {
   coins: { bullseye: 1.2, close: 3, off: 10 },
   nfts: { bullseye: 1.1, close: 2, off: 5 },
+  punks: { bullseye: 1.15, close: 2.5, off: 8 },
 };
 
 /** What one entry is called, for anything a player reads. */
 export const ENTRY_NOUN: Record<UniverseKey, string> = {
   coins: 'coin',
   nfts: 'collection',
+  punks: 'punk',
+};
+
+/** What the number on the reel is. A punk's index is the punk, not a ranking. */
+export const RANK_LABEL: Record<UniverseKey, string> = {
+  coins: 'Rank',
+  nfts: 'Rank',
+  punks: 'Punk',
 };
 
 /** What the rank in "#412 by ..." is a rank of. */
 export const RANKED_BY: Record<UniverseKey, string> = {
   coins: 'market cap',
   nfts: 'all-time volume',
+  punks: '',
 };
 
 export const UNIVERSE_LABELS: Record<UniverseKey, string> = {
   coins: 'Coins',
   nfts: 'NFTs',
+  punks: 'Punks',
 };
 
 export interface GameConfig {
@@ -221,6 +305,7 @@ export interface GameConfig {
 export const DEFAULT_CATEGORIES: Record<UniverseKey, Category[]> = {
   coins: ['price', 'mcap'],
   nfts: ['floor', 'owners'],
+  punks: ['lastSale', 'highSale'],
 };
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -283,6 +368,8 @@ export interface Round {
   coin: PublicCoin;
   /** Frozen at spin time. Stripped from every payload until phase === 'reveal'. */
   truth: Truth;
+  /** Revealed alongside the truth, never before it. */
+  notes: Partial<Record<Category, string>>;
   /** Effective categories for this round — fdv is dropped when it duplicates mcap. */
   cats: Category[];
   mergedFdv: boolean;

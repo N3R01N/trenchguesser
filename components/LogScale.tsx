@@ -26,11 +26,13 @@ export function LogScale({
   entries,
   show,
   unit,
+  zeroLabel,
 }: {
   truth: number;
   entries: ScaleEntry[];
   show: boolean;
   unit: Unit;
+  zeroLabel?: string;
 }) {
   const centre = Math.log10(Math.max(truth, 1e-12));
   const lo = centre - DECADES;
@@ -73,7 +75,7 @@ export function LogScale({
                   left: show ? `${place(e.guess)}%` : '50%',
                   transitionDelay: `${i * 90}ms`,
                 }}
-                title={amount(e.guess, unit)}
+                title={e.guess === 0 && zeroLabel ? zeroLabel : amount(e.guess, unit)}
               />
             )}
           </span>

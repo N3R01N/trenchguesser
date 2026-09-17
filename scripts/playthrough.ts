@@ -14,6 +14,7 @@ import {
   CATEGORY_BOUNDS,
   CATEGORY_UNITS,
   DEFAULT_CATEGORIES,
+  zeroMeans,
   type Category,
   type UniverseKey,
 } from '../lib/types.ts';
@@ -77,7 +78,7 @@ for (let r = 1; r <= ROUNDS; r++) {
   s = await state(code);
   const round = s.round!;
   console.log(
-    `round ${r}  #${rank}  ${round.coin.n} (${round.coin.s})  spun by ${players[spinner]}` +
+    `round ${r}  #${rank}  ${round.coin.n}${round.coin.s ? ` (${round.coin.s})` : ''}  spun by ${players[spinner]}` +
       (round.mergedFdv ? '  [fdv merged]' : ''),
   );
 
@@ -88,6 +89,12 @@ for (let r = 1; r <= ROUNDS; r++) {
     // transcript reads like a game rather than like noise.
     const values: Partial<Record<Category, number>> = {};
     for (const c of round.cats) {
+      // Sometimes answer the bucket rather than the axis, so the categorical
+      // path gets exercised too.
+      if (zeroMeans(c) && Math.random() < 0.3) {
+        values[c] = 0;
+        continue;
+      }
       const [lo, hi] = CATEGORY_BOUNDS[c];
       const t = Math.random();
       values[c] = 10 ** (Math.log10(lo) + t * (Math.log10(hi) - Math.log10(lo)));
@@ -111,13 +118,18 @@ for (let r = 1; r <= ROUNDS; r++) {
   for (const outcome of result.outcomes) {
     const winners = outcome.winners.map((w) => players[w]).join(', ') || 'nobody';
     const unit = CATEGORY_UNITS[outcome.cat];
+    const zero = zeroMeans(outcome.cat);
+    const show = (v: number | null) =>
+      v === null ? '—' : v === 0 && zero ? zero.toLowerCase() : amount(v, unit);
+    const when = s.round!.notes?.[outcome.cat];
     console.log(
-      `   ${outcome.cat.padEnd(6)} ${amount(truth[outcome.cat]!, unit).padEnd(12)} won by ${winners}`,
+      `   ${outcome.cat.padEnd(9)} ${show(truth[outcome.cat]!).padEnd(14)}` +
+        `${(when ?? '').padEnd(10)} won by ${winners}`,
     );
     for (const id of ids) {
       const g = s.round!.guesses?.[id]?.values?.[outcome.cat] ?? null;
       console.log(
-        `      ${players[id].padEnd(4)} ${(g === null ? '—' : amount(g, unit)).padEnd(12)} ${offBy(g, truth[outcome.cat]!)}`,
+        `      ${players[id].padEnd(4)} ${show(g).padEnd(14)}${''.padEnd(10)} ${offBy(g, truth[outcome.cat]!, zero)}`,
       );
     }
   }

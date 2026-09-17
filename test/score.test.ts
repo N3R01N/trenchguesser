@@ -232,6 +232,109 @@ describe('fdv merge rule', () => {
   });
 });
 
+describe('a category where zero is an answer', () => {
+  /** Punks: three quarters have sold, a quarter never have. */
+  const never = { lastSale: 0, highSale: 0, lowSale: 0 };
+  const sold = { lastSale: 45, highSale: 60, lowSale: 12 };
+  const g = (vals: Record<string, Partial<Record<Category, number>>>) =>
+    Object.fromEntries(
+      Object.entries(vals).map(([id, values]) => [id, { at: Date.now(), values }]),
+    );
+
+  test('is kept in the round, where an unfilled category would be dropped', () => {
+    assert.deepEqual(effectiveCategories(['lastSale'], never), {
+      cats: ['lastSale'],
+      mergedFdv: false,
+    });
+    // The same zero for a coin is missing data, not an answer.
+    assert.deepEqual(effectiveCategories(['price'], { price: 0 }), {
+      cats: [],
+      mergedFdv: false,
+    });
+  });
+
+  test('saying "never sold" about a punk that never sold wins it', () => {
+    const r = scoreRound(
+      ['a', 'b', 'c'],
+      ['lastSale'],
+      never,
+      g({ a: { lastSale: 0 }, b: { lastSale: 40 }, c: { lastSale: 0.05 } }),
+    );
+    assert.deepEqual(r.outcomes[0]?.winners, ['a']);
+    assert.equal(r.delta.a, 2);
+    assert.equal(sum(r.delta), 0);
+  });
+
+  test('saying it about a punk that did sell is as wrong as an answer gets', () => {
+    const r = scoreRound(
+      ['a', 'b'],
+      ['lastSale'],
+      sold,
+      g({ a: { lastSale: 0 }, b: { lastSale: 4000 } }),
+    );
+    assert.deepEqual(r.outcomes[0]?.winners, ['b'], 'wildly high still beats never');
+    assert.equal(r.delta.a, -1);
+  });
+
+  test('everyone calling it right is a tie, so nobody moves', () => {
+    const r = scoreRound(
+      ['a', 'b'],
+      ['lastSale'],
+      never,
+      g({ a: { lastSale: 0 }, b: { lastSale: 0 } }),
+    );
+    assert.equal(sum(r.delta), 0);
+    assert.equal(r.delta.a, 0);
+  });
+
+  test('a zero guess is still refused where zero means nothing', () => {
+    const r = scoreRound(
+      ['a', 'b'],
+      ['price'],
+      { price: 45 },
+      g({ a: { price: 0 }, b: { price: 4000 } }),
+    );
+    assert.equal(r.outcomes[0]?.errors.a, null, 'it never became a submission');
+  });
+
+  test('missing it together is a tie, not a prize for the lowest guess', () => {
+    // The bug this pins: on the log axis every price is measured against the
+    // clamped floor, so the smallest number was "closest" to never having sold.
+    const r = scoreRound(
+      ['a', 'b', 'c'],
+      ['lastSale'],
+      never,
+      g({ a: { lastSale: 1 }, b: { lastSale: 315 }, c: { lastSale: 0.0239 } }),
+    );
+    assert.deepEqual(r.outcomes[0]?.winners, ['a', 'b', 'c'], 'all equally wrong');
+    assert.equal(sum(r.delta), 0);
+    assert.equal(r.delta.c, 0, 'lowballing wins nothing');
+  });
+
+  test('one player calling it takes the category off everyone else', () => {
+    const r = scoreRound(
+      ['a', 'b', 'c'],
+      ['lastSale'],
+      never,
+      g({ a: { lastSale: 0 }, b: { lastSale: 315 }, c: { lastSale: 0.0239 } }),
+    );
+    assert.deepEqual(r.outcomes[0]?.winners, ['a']);
+    assert.equal(r.delta.b, r.delta.c, 'and the two who missed lose equally');
+  });
+
+  test('the high and the low still score normally when it has sold', () => {
+    const r = scoreRound(
+      ['a', 'b'],
+      ['highSale', 'lowSale'],
+      sold,
+      g({ a: { highSale: 58, lowSale: 400 }, b: { highSale: 900, lowSale: 11 } }),
+    );
+    assert.deepEqual(r.outcomes[0]?.winners, ['a'], 'a is closer on the high');
+    assert.deepEqual(r.outcomes[1]?.winners, ['b'], 'b is closer on the low');
+    assert.equal(sum(r.delta), 0);
+  });
+});
+
 describe('reveal tiers', () => {
   test('tier boundaries', () => {
     assert.equal(revealTier(100, 100), 'bullseye');

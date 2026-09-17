@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { buzz, post } from '@/lib/client.ts';
 import type { PublicState } from '@/lib/room.ts';
-import { UNIVERSE_RANGES } from '@/lib/types.ts';
+import { ENTRY_NOUN, UNIVERSE_RANGES } from '@/lib/types.ts';
 import { prefersReducedMotion } from '@/lib/motion.ts';
 import { RoundDots } from '../ui.tsx';
 

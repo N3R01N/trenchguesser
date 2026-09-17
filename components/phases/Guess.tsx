@@ -6,9 +6,13 @@ import type { PublicRound, PublicState } from '@/lib/room.ts';
 import {
   CATEGORY_BOUNDS,
   CATEGORY_LABELS,
+  CATEGORY_OVER_CAP,
   CATEGORY_UNITS,
+  OVER_CAP_GUESS,
   RANKED_BY,
+  RANK_LABEL,
   SPIN_SETTLE_MS,
+  zeroMeans,
   type Category,
 } from '@/lib/types.ts';
 import { amount, decadeLabel } from '@/lib/format.ts';
@@ -40,6 +44,8 @@ export function Guess({
   const [steps, setSteps] = useState<Record<string, number>>(() =>
     Object.fromEntries(round.cats.map((c) => [c, STEPS / 2])),
   );
+  /** A category answered with a bucket rather than a position on the axis. */
+  const [buckets, setBuckets] = useState<Record<string, Bucket>>({});
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sending = useRef(false);
@@ -51,7 +57,12 @@ export function Guess({
     sending.current = true;
     try {
       const values = Object.fromEntries(
-        round.cats.map((c) => [c, toValue(steps[c] ?? STEPS / 2, c)]),
+        round.cats.map((c) => {
+          const bucket = buckets[c];
+          if (bucket === 'zero') return [c, 0];
+          if (bucket === 'over') return [c, OVER_CAP_GUESS];
+          return [c, toValue(steps[c] ?? STEPS / 2, c)];
+        }),
       );
       await post(`/api/room/${state.code}/guess`, { playerId: you, values });
       setSubmitted(true);
@@ -62,7 +73,7 @@ export function Guess({
     } finally {
       sending.current = false;
     }
-  }, [onChanged, round.cats, state.code, steps, submitted, you]);
+  }, [onChanged, round.cats, state.code, steps, buckets, submitted, you]);
 
   // "click done, or after the time is over it is automatically submitted"
   useEffect(() => {
@@ -75,6 +86,7 @@ export function Guess({
         round={round}
         introMs={introMs}
         rankedBy={RANKED_BY[state.config.mode]}
+        rankLabel={RANK_LABEL[state.config.mode]}
       />
     );
   }
@@ -104,8 +116,15 @@ export function Guess({
                 : CATEGORY_LABELS[cat]
             }
             step={steps[cat] ?? STEPS / 2}
+            bucket={buckets[cat]}
             disabled={submitted}
-            onChange={(v) => setSteps((prev) => ({ ...prev, [cat]: v }))}
+            onChange={(v) => {
+              setSteps((prev) => ({ ...prev, [cat]: v }));
+              setBuckets((prev) => ({ ...prev, [cat]: undefined }));
+            }}
+            onBucket={(b) =>
+              setBuckets((prev) => ({ ...prev, [cat]: prev[cat] === b ? undefined : b }))
+            }
           />
         ))}
       </div>
@@ -144,10 +163,12 @@ function CoinIntro({
   round,
   introMs,
   rankedBy,
+  rankLabel,
 }: {
   round: PublicRound;
   introMs: number;
   rankedBy: string;
+  rankLabel: string;
 }) {
   const progress = 1 - introMs / SPIN_SETTLE_MS;
   const settling = progress < 0.5 && !prefersReducedMotion();
@@ -177,7 +198,7 @@ function CoinIntro({
   return (
     <main className="screen">
       <div className="screen-body center" style={{ justifyContent: 'center' }}>
-        <span className="label">Rank</span>
+        <span className="label">{rankLabel}</span>
         <div className={`reel${settling ? ' is-spinning' : ' is-landed'}`}>
           <span className="reel-number mono">{shown}</span>
         </div>
@@ -196,22 +217,30 @@ function CoinIntro({
   );
 }
 
+type Bucket = 'zero' | 'over' | undefined;
+
 function LogSlider({
   cat,
   label,
   step,
+  bucket,
   disabled,
   onChange,
+  onBucket,
 }: {
   cat: Category;
   label: string;
   step: number;
+  bucket: Bucket;
   disabled: boolean;
   onChange: (step: number) => void;
+  onBucket: (b: Exclude<Bucket, undefined>) => void;
 }) {
   const value = toValue(step, cat);
   const unit = CATEGORY_UNITS[cat];
   const [lo, hi] = CATEGORY_BOUNDS[cat];
+  const zeroLabel = zeroMeans(cat);
+  const overCap = CATEGORY_OVER_CAP[cat];
   const decade = useRef(Math.floor(Math.log10(value)));
 
   function handle(next: number) {
@@ -233,19 +262,52 @@ function LogSlider({
   return (
     <div className="guess">
       <span className="label">{label}</span>
-      <span className="guess-value">{amount(value, unit)}</span>
+      <span className="guess-value">
+        {bucket === 'zero'
+          ? zeroLabel
+          : bucket === 'over'
+            ? `Over ${overCap?.toLocaleString('en-US')} ETH`
+            : amount(value, unit)}
+      </span>
       <input
         type="range"
         min={0}
         max={STEPS}
         step={1}
         value={step}
-        disabled={disabled}
+        disabled={disabled || bucket !== undefined}
         aria-label={label}
         aria-valuetext={amount(value, unit)}
         style={{ '--fill': `${(step / STEPS) * 100}%` } as React.CSSProperties}
         onChange={(e) => handle(Number(e.target.value))}
       />
+      {(zeroLabel || overCap) && (
+        <div className="buckets">
+          {zeroLabel && (
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={bucket === 'zero'}
+              disabled={disabled}
+              onClick={() => onBucket('zero')}
+            >
+              {zeroLabel}
+            </button>
+          )}
+          {overCap && (
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={bucket === 'over'}
+              disabled={disabled}
+              onClick={() => onBucket('over')}
+            >
+              Over {overCap.toLocaleString('en-US')}
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="guess-scale" aria-hidden="true">
         {decades.map((d) => (
           <span

@@ -38,6 +38,11 @@ const BUILD_STAGES: Record<UniverseKey, WaitStage[]> = {
     { after: 3, text: 'Walking the all-time volume ladder…' },
     { after: 10, text: 'Dropping unverified and hidden collections…' },
   ],
+  punks: [
+    { after: 0, text: 'Checking for a recent punk history…' },
+    { after: 3, text: 'Reading every punk sale since June 2017…' },
+    { after: 12, text: 'Folding thirty thousand sales down to ten thousand punks…' },
+  ],
 };
 
 const BASE_CHOICES = [5_000, 10_000, 15_000, 20_000];
@@ -214,6 +219,7 @@ export default function HostSetup() {
           </div>
         </div>
 
+        {mode !== 'punks' && (
         <div className="field">
           <span className="label">Difficulty</span>
           <div className="segments">
@@ -234,6 +240,7 @@ export default function HostSetup() {
             {UNIVERSE_RANGES[mode][range].to} by {RANKED_BY[mode]}.
           </p>
         </div>
+        )}
       </div>
 
       {error && <div className="error">{error}</div>}

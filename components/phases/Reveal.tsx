@@ -7,6 +7,7 @@ import {
   CATEGORY_UNITS,
   RANKED_BY,
   REVEAL_STEP_MS,
+  zeroMeans,
   type Unit,
 } from '@/lib/types.ts';
 import { amount, offBy } from '@/lib/format.ts';
@@ -87,6 +88,8 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
               }
               actual={actual}
               unit={CATEGORY_UNITS[outcome.cat]}
+              note={round.notes?.[outcome.cat]}
+              zeroLabel={zeroMeans(outcome.cat)}
               mine={mine}
               tier={tier}
               entries={entries}
@@ -120,6 +123,8 @@ function RevealCategory({
   label,
   actual,
   unit,
+  note,
+  zeroLabel,
   mine,
   tier,
   entries,
@@ -129,13 +134,17 @@ function RevealCategory({
   label: string;
   actual: number;
   unit: Unit;
+  /** The date this price happened — the era is most of the guess. */
+  note?: string;
+  zeroLabel?: string;
   mine: number | null;
   tier: RevealTier;
   entries: ScaleEntry[];
   nobody: boolean;
   isLatest: boolean;
 }) {
-  const counted = useCountUp(actual, 900);
+  const never = actual === 0 && zeroLabel !== undefined;
+  const counted = useCountUp(never ? 0 : actual, 900);
   const [settled, setSettled] = useState(false);
 
   useEffect(() => {
@@ -154,14 +163,36 @@ function RevealCategory({
         ) : (
           <span className={`tier-tag tier-${tier}`}>
             {TIER_COPY[tier]}
-            {mine !== null && ` · ${offBy(mine, actual)}`}
+            {mine !== null && ` · ${offBy(mine, actual, zeroLabel)}`}
           </span>
         )}
       </div>
 
-      <span className="reveal-truth mono">{amount(counted, unit)}</span>
+      <div className="reveal-truth-row">
+        <span className="reveal-truth mono">
+          {never ? zeroLabel : amount(counted, unit)}
+        </span>
+        {note && !never && <span className="reveal-when">{note}</span>}
+      </div>
 
-      <LogScale truth={actual} entries={entries} show={settled} unit={unit} />
+      {never ? (
+        // A log axis has nowhere to put "never", so the lanes stand alone.
+        <div className="never-lanes">
+          {entries.map((e) => (
+            <span
+              key={e.id}
+              className={`never-chip${e.won ? ' won' : ''}${e.you ? ' is-you' : ''}`}
+            >
+              {e.name}
+              <span className="never-said">
+                {e.guess === null ? 'no guess' : e.guess === 0 ? zeroLabel : amount(e.guess, unit)}
+              </span>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <LogScale truth={actual} entries={entries} show={settled} unit={unit} />
+      )}
     </div>
   );
 }

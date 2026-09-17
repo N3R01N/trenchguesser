@@ -10,6 +10,7 @@
     "test": "node --test test/*.test.ts",
     "snapshot": "node --env-file=.env.local scripts/build-snapshot.ts",
     "snapshot:nft": "node --env-file=.env.local scripts/build-nft-snapshot.ts",
+    "snapshot:punks": "node --env-file=.env.local scripts/build-punk-snapshot.ts",
     "playthrough": "node --env-file=.env.local scripts/playthrough.ts"
   },
   "dependencies": {

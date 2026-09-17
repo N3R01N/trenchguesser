@@ -7,6 +7,7 @@ import {
   type RoundResult,
   type Truth,
   type UniverseKey,
+  zeroMeans,
 } from './types.ts';
 
 /** Float noise must never fake-break a genuine tie. */
@@ -14,9 +15,33 @@ const ERROR_EPSILON = 1e-9;
 /** log10(0) is -Infinity; clamp so a zero guess is merely terrible, not fatal. */
 const VALUE_FLOOR = 1e-12;
 
+/**
+ * How wrong a number is when the answer was not a number.
+ *
+ * "Never sold" is a claim, not a quantity, so every price misses it by the same
+ * amount. Scoring it on the axis instead would measure each guess against the
+ * floor the axis clamps to, and hand the category to whoever lowballed hardest
+ * — rewarding exactly what log-squared error exists to stop rewarding. Missing
+ * it together is a tie, and a tie moves nobody.
+ */
+const CATEGORICAL_MISS = 1e6;
+
 /** A value only scores if it is a real positive number — the log axis needs one. */
 function usable(v: number | undefined): v is number {
   return typeof v === 'number' && Number.isFinite(v) && v > 0;
+}
+
+/**
+ * Whether a value counts as an answer for this category.
+ *
+ * Zero is nothing at all for a price or a floor, and it is a genuine answer for
+ * a punk that never sold. Scoring needs no special case beyond letting it
+ * through: the log axis clamps zero to its floor at both ends, so zero against
+ * zero is an exact match and zero against a price is as wrong as it gets.
+ */
+function answered(cat: Category, v: number | undefined): v is number {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return false;
+  return v > 0 || (v === 0 && zeroMeans(cat) !== undefined);
 }
 
 /**
@@ -80,7 +105,7 @@ export function effectiveCategories(
   configured: Category[],
   truth: Truth,
 ): { cats: Category[]; mergedFdv: boolean } {
-  const available = configured.filter((c) => usable(truth[c]));
+  const available = configured.filter((c) => answered(c, truth[c]));
 
   const hasBoth = available.includes('mcap') && available.includes('fdv');
   if (!hasBoth) return { cats: available, mergedFdv: false };
@@ -111,14 +136,21 @@ export function scoreRound(
 
   for (const cat of cats) {
     const actual = truth[cat];
+    // The answer is a word rather than a number, so nearness does not apply.
+    const categorical = actual === 0 && zeroMeans(cat) !== undefined;
     const errors: Record<string, number | null> = {};
 
     for (const id of playerIds) {
       const raw = guesses[id]?.values?.[cat];
-      errors[id] =
-        typeof raw === 'number' && Number.isFinite(raw) && raw > 0
-          ? logError(raw, actual)
-          : null;
+      if (!answered(cat, raw)) {
+        errors[id] = null;
+        continue;
+      }
+      errors[id] = categorical
+        ? raw === 0
+          ? 0
+          : CATEGORICAL_MISS
+        : logError(raw, actual);
     }
 
     const submitted = playerIds.filter((id) => errors[id] !== null);

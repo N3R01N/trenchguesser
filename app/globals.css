@@ -562,6 +562,81 @@ input[type='range']::-moz-range-thumb {
   background: var(--accent);
 }
 
+/* ---------- bucket answers ---------- */
+
+/*
+ * Answers that are not points on the axis: a punk that never sold, and a sale
+ * above where the slider stops. Sitting under the track rather than beside it,
+ * because picking one takes the slider out of play.
+ */
+.buckets {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.buckets .chip {
+  flex: 1;
+  min-height: 40px;
+  font-size: 13px;
+}
+
+.guess input[type='range']:disabled {
+  opacity: 0.3;
+}
+
+.reveal-truth-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Punk prices are era-bound: 40 ETH in 2021 and 40 ETH today are not the
+   same claim, so the date is part of the answer rather than trivia. */
+.reveal-when {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.never-lanes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.never-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.never-chip.won {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.never-chip.is-you {
+  font-weight: 700;
+}
+
+.never-said {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.never-chip.won .never-said {
+  color: var(--accent);
+}
+
 /* ---------- reveal ---------- */
 
 .reveal-cat {
