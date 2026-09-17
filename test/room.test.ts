@@ -50,6 +50,11 @@ async function seedUniverse(size = 2500): Promise<Coin[]> {
   return coins;
 }
 
+/** Ages a player's heartbeat so they read as gone. */
+async function goQuiet(code: string, playerId: string): Promise<void> {
+  await store().hset(`room:${code}:seen`, playerId, Date.now() - 60_000);
+}
+
 /** Fast-forwards past the guessing deadline without waiting out a real timer. */
 async function expirePhase(code: string): Promise<void> {
   const s = store();
@@ -312,6 +317,56 @@ describe('when a round ends', () => {
     assert.ok(
       before < (spun.phaseEndsAt ?? 0),
       'and it closed while there was still time on the clock',
+    );
+  });
+});
+
+describe('starting the next round', () => {
+  /** Plays one round out and stops on the standings between rounds. */
+  async function toStandings() {
+    await seedUniverse();
+    const { room, playerId: host } = await createRoom('Mat', {
+      roundsMode: 'flat',
+      roundsValue: 4,
+    });
+    const { playerId: ana } = await joinRoom(room.code, 'Ana');
+    const { playerId: bo } = await joinRoom(room.code, 'Bo');
+    await startGame(room.code, host);
+    await spin(room.code, host, 700);
+    for (const id of [host, ana, bo]) {
+      await submitGuess(room.code, id, { price: 1, mcap: 1e6 });
+    }
+    await advance(room.code, host); // -> reveal
+    await advance(room.code, host); // -> standings
+
+    const s = await publicState(room.code);
+    const idx = s.players.findIndex((p) => p.id === s.activePlayerId);
+    const next = s.players[(idx + 1) % s.players.length]!;
+    const bystander = [host, ana, bo].find(
+      (id) => id !== next.id && id !== s.hostId,
+    ) as string;
+    return { code: room.code, host, next: next.id, bystander };
+  }
+
+  test('belongs to the next player and the host, and nobody else', async () => {
+    const { code, bystander } = await toStandings();
+    await assert.rejects(
+      () => advance(code, bystander),
+      /Only the next player can start the round/,
+      'a bystander cannot take the turn off someone who is right there',
+    );
+  });
+
+  test('opens up to anyone once the next player has gone quiet', async () => {
+    const { code, next, bystander } = await toStandings();
+    await goQuiet(code, next);
+
+    const started = await advance(code, bystander);
+    assert.equal(started.phase, 'spinning');
+    assert.equal(
+      started.players[started.turnIdx]?.id,
+      next,
+      'the turn still passes to them — the spin rescue takes it from there',
     );
   });
 });

@@ -43,10 +43,14 @@ export function Standings({
   const lastRound = state.roundNo >= state.totalRounds;
   /**
    * Starting the next round belongs to whoever is about to spin, or the host.
+   *
    * Ending the game belongs to nobody: there is no next turn to take, so gating
    * it left anyone who was neither staring at a dead button with the game over.
+   * And if the player whose turn it is has gone quiet, anyone may start it —
+   * otherwise a table waits on two people who have both closed their tabs.
    */
-  const yours = lastRound || next?.id === you || you === state.hostId;
+  const stalled = next ? !next.present : false;
+  const yours = lastRound || stalled || next?.id === you || you === state.hostId;
 
   async function go() {
     setBusy(true);
@@ -94,7 +98,9 @@ export function Standings({
               ? 'See final scores'
               : next?.id === you
                 ? 'Your turn — spin'
-                : `Start ${next?.name}'s round`}
+                : stalled
+                  ? `Start without ${next?.name}`
+                  : `Start ${next?.name}'s round`}
           </button>
         ) : (
           <button className="btn btn-lg" disabled>

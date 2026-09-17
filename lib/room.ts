@@ -431,9 +431,19 @@ export async function advance(code: string, playerId: string): Promise<Room> {
         room.phaseEndsAt = null;
         return write(room);
       }
+      /**
+       * Starting the round is the next player's to do, or the host's — unless
+       * the next player has gone quiet, in which case anyone may move it along.
+       *
+       * No grace timer here, unlike the spin rescue: absence already means
+       * PRESENCE_TIMEOUT_MS of silence, where a spinner may simply be slow to
+       * tap. The turn still passes to them, and the spin rescue takes it from
+       * there, so nobody gets to play a round on someone else's behalf.
+       */
       const nextIdx = (room.turnIdx + 1) % room.players.length;
       const next = room.players[nextIdx];
-      if (next && playerId !== next.id && playerId !== room.hostId) {
+      const stalled = next ? !next.present : false;
+      if (next && !stalled && playerId !== next.id && playerId !== room.hostId) {
         throw new RoomError('Only the next player can start the round', 403);
       }
       room.turnIdx = nextIdx;
