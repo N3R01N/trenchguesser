@@ -15,7 +15,25 @@ interface Bit {
   color: string;
 }
 
-const COLORS = ['#45b8ae', '#d9a441', '#e2e8e7', '#7fd6cd'];
+/**
+ * Read off the theme rather than fixed, or a burst is invisible on paper and
+ * again on black. Gold and red come along because they are the only two hues
+ * the palette keeps, and a burst of nothing but greyscale reads as dust.
+ */
+const PALETTE_TOKENS = ['--text', '--gold', '--muted', '--bad'];
+
+function palette(): string[] {
+  try {
+    const root = getComputedStyle(document.documentElement);
+    const found = PALETTE_TOKENS.map((t) => root.getPropertyValue(t).trim()).filter(
+      Boolean,
+    );
+    if (found.length) return found;
+  } catch {
+    // Computed styles are unavailable in some embedded views.
+  }
+  return ['#888888'];
+}
 
 /**
  * A one-shot burst for a bullseye guess. Canvas rather than DOM nodes: 70 spans
@@ -32,6 +50,7 @@ export function Confetti({ fire }: { fire: boolean }) {
     const ctx = el.getContext('2d');
     if (!ctx) return;
 
+    const colors = palette();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = (el.width = el.offsetWidth * dpr);
     const h = (el.height = el.offsetHeight * dpr);
@@ -48,7 +67,7 @@ export function Confetti({ fire }: { fire: boolean }) {
         vr: (Math.random() - 0.5) * 0.3,
         w: (4 + Math.random() * 5) * dpr,
         h: (7 + Math.random() * 7) * dpr,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        color: colors[Math.floor(Math.random() * colors.length)]!,
       };
     });
 

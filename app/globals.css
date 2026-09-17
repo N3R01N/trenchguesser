@@ -1,21 +1,83 @@
+/*
+ * Paper by default, and the exact negative of it at night.
+ *
+ * Everything structural is greyscale: the accent is the text colour, so a
+ * primary button is a black slab on white and a white slab on black. The only
+ * hues left are the two that carry meaning on their own — gold for the round's
+ * winner, red for a loss or an error — and both are re-picked per theme rather
+ * than reused, because a colour mixed for black never reads right on white.
+ *
+ * The two blocks are written out in full rather than via light-dark(), which
+ * needs Safari 17.4. This is a game played on whatever phone is at the table.
+ */
 :root {
-  --bg: #0e1315;
-  --surface: #161d1f;
-  --surface-2: #1e2629;
-  --border: #273134;
-  --border-2: #354245;
-  --text: #e2e8e7;
-  --muted: #97a3a6;
-  --faint: #6e7a7d;
-  --accent: #45b8ae;
-  --accent-dim: #12302f;
-  --gold: #d9a441;
-  --gold-dim: #2e2517;
-  --bad: #e0736b;
-  --bad-dim: #2f1a19;
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --surface-2: #f1f1f2;
+  --border: #e4e4e6;
+  --border-2: #cdcdd1;
+  --text: #0b0b0c;
+  --muted: #62646a;
+  --faint: #707178;
+  --accent: #0b0b0c;
+  /* What sits on top of an accent-filled surface. */
+  --accent-ink: #ffffff;
+  --accent-dim: #f1f1f2;
+  --accent-glow: rgba(11, 11, 12, 0.1);
+  --gold: #9a6f16;
+  --gold-dim: #f8f0dc;
+  --gold-sweep: rgba(154, 111, 22, 0.16);
+  --bad: #b8302a;
+  --bad-dim: #fcecea;
 
   --radius: 12px;
   --tap: 52px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0b0b0c;
+    --surface: #151517;
+    --surface-2: #1f1f22;
+    --border: #2b2b2f;
+    --border-2: #3e3e44;
+    --text: #f4f4f5;
+    --muted: #a1a1a8;
+    --faint: #85858d;
+    --accent: #f4f4f5;
+    --accent-ink: #0b0b0c;
+    --accent-dim: #1c1c1f;
+    --accent-glow: rgba(244, 244, 245, 0.12);
+    --gold: #e3b341;
+    --gold-dim: #2a2113;
+    --gold-sweep: rgba(227, 179, 65, 0.22);
+    --bad: #e5695f;
+    --bad-dim: #2c1917;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0b0b0c;
+  --surface: #151517;
+  --surface-2: #1f1f22;
+  --border: #2b2b2f;
+  --border-2: #3e3e44;
+  --text: #f4f4f5;
+  --muted: #a1a1a8;
+  --faint: #85858d;
+  --accent: #f4f4f5;
+  --accent-ink: #0b0b0c;
+  --accent-dim: #1c1c1f;
+  --accent-glow: rgba(244, 244, 245, 0.12);
+  --gold: #e3b341;
+  --gold-dim: #2a2113;
+  --gold-sweep: rgba(227, 179, 65, 0.22);
+  --bad: #e5695f;
+  --bad-dim: #2c1917;
 
   color-scheme: dark;
 }
@@ -95,6 +157,63 @@ select {
 
 .spread {
   justify-content: space-between;
+}
+
+/* ---------- brand ---------- */
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo {
+  display: block;
+  color: var(--accent);
+}
+
+/*
+ * Anton only. No fallback weight is close enough to matter, so the stack drops
+ * straight to the system sans and the lockup simply reads a little lighter for
+ * the frame before the face arrives.
+ */
+.wordmark {
+  margin: 0;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 400;
+  font-size: clamp(38px, 12.5vw, 58px);
+  line-height: 0.92;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  color: var(--text);
+  /* Thirteen characters on a 320px phone still has to be one line. */
+  white-space: nowrap;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: var(--border-2);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ---------- type ---------- */
@@ -178,7 +297,7 @@ h2 {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #06201f;
+  color: var(--accent-ink);
 }
 
 .btn-lg {
@@ -546,8 +665,8 @@ input[type='range']::-moz-range-thumb {
 
 /* The accent ring vanishes against an accent-filled button. */
 .btn-primary .spinner {
-  border-color: rgba(6, 32, 31, 0.25);
-  border-top-color: #06201f;
+  border-color: color-mix(in srgb, var(--accent-ink) 25%, transparent);
+  border-top-color: var(--accent-ink);
 }
 
 .wait {
@@ -634,7 +753,7 @@ button,
 
 .reel.is-landed {
   border-color: var(--accent);
-  box-shadow: inset 0 0 40px rgba(69, 184, 174, 0.14);
+  box-shadow: inset 0 0 40px var(--accent-glow);
 }
 
 .reel.is-landed .reel-number {
@@ -930,7 +1049,7 @@ input[type='range']::-moz-range-track {
   background: linear-gradient(
     100deg,
     transparent 20%,
-    rgba(217, 164, 65, 0.22) 50%,
+    var(--gold-sweep) 50%,
     transparent 80%
   );
   transform: translateX(-100%);

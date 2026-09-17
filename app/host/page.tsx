@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { post } from '@/lib/client.ts';
 import { lastName, rememberPlayer } from '@/lib/identity.ts';
 import { Spinner, WaitNote, type WaitStage } from '@/components/ui.tsx';
+import { ThemeToggle } from '@/components/ThemeToggle.tsx';
 import {
   CATEGORY_LABELS,
   DEFAULT_CATEGORIES,
@@ -96,9 +97,12 @@ export default function HostSetup() {
     <main className="screen">
       <div className="row spread">
         <h2>New game</h2>
-        <button className="btn btn-ghost" onClick={() => router.push('/')}>
-          Cancel
-        </button>
+        <div className="row">
+          <ThemeToggle />
+          <button className="btn btn-ghost" onClick={() => router.push('/')}>
+            Cancel
+          </button>
+        </div>
       </div>
 
       <div className="screen-body">

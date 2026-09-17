@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { post } from '@/lib/client.ts';
 import { lastName, rememberPlayer } from '@/lib/identity.ts';
 import { Spinner } from '@/components/ui.tsx';
+import { Brand } from '@/components/Brand.tsx';
+import { ThemeToggle } from '@/components/ThemeToggle.tsx';
 
 export default function Home() {
   const router = useRouter();
@@ -39,11 +41,16 @@ export default function Home() {
 
   return (
     <main className="screen">
+      <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <ThemeToggle />
+      </div>
+
       <div className="screen-body center" style={{ justifyContent: 'center' }}>
-        <h1 style={{ fontSize: 44 }}>Trenchguesser</h1>
+        <Brand />
         <p className="muted">
-          Spin a number. That is a coin&apos;s market-cap rank. Guess what
-          it&apos;s worth before the clock runs out.
+          Spin a number. That is a coin&apos;s rank by market cap, or a
+          collection&apos;s by all-time volume. Guess what it&apos;s worth before
+          the clock runs out.
         </p>
       </div>
 
