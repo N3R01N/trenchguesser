@@ -316,6 +316,64 @@ describe('when a round ends', () => {
   });
 });
 
+describe('when the game ends', () => {
+  /** Plays a whole game out and stops on the closing standings. */
+  async function playToTheEnd(rounds: number) {
+    await seedUniverse();
+    const { room, playerId: host } = await createRoom('Mat', {
+      roundsMode: 'flat',
+      roundsValue: rounds,
+    });
+    const { playerId: ana } = await joinRoom(room.code, 'Ana');
+    const { playerId: bo } = await joinRoom(room.code, 'Bo');
+    await startGame(room.code, host);
+
+    for (let r = 1; r <= rounds; r++) {
+      const before = await publicState(room.code);
+      await spin(room.code, before.activePlayerId as string, 700 + r);
+      for (const id of [host, ana, bo]) {
+        await submitGuess(room.code, id, { price: 1, mcap: 1e6 });
+      }
+      await advance(room.code, host); // -> reveal
+      await advance(room.code, host); // -> standings
+      if (r < rounds) await advance(room.code, host); // -> next round
+    }
+    return { code: room.code, host, ana, bo };
+  }
+
+  test('the closing standings is the last round, and the game is over', async () => {
+    const { code } = await playToTheEnd(2);
+    const s = await publicState(code);
+    assert.equal(s.phase, 'standings');
+    assert.equal(s.roundNo, s.totalRounds, 'every round has been played');
+  });
+
+  test('anyone still here can finish it, not just the host or the next player', async () => {
+    const { code, host, ana, bo } = await playToTheEnd(2);
+    const s = await publicState(code);
+
+    // Whoever the next turn would have belonged to, and the host, are the two
+    // the mid-game rule allows. Find somebody who is neither.
+    const idx = s.players.findIndex((p) => p.id === s.activePlayerId);
+    const next = s.players[(idx + 1) % s.players.length]!;
+    const bystander = [host, ana, bo].find((id) => id !== next.id && id !== s.hostId);
+    assert.ok(bystander, 'a three-player game has one');
+
+    const ended = await advance(code, bystander);
+    assert.equal(ended.phase, 'final', 'the game ends for a player with no turn to take');
+  });
+
+  test('there is nowhere to go from the podium', async () => {
+    const { code, host } = await playToTheEnd(2);
+    await advance(code, host);
+    await assert.rejects(
+      () => advance(code, host),
+      /Cannot advance from final/,
+      'a finished game stays finished',
+    );
+  });
+});
+
 describe('rank resolution', () => {
   test('an unused rank is taken as-is', () => {
     assert.equal(resolveRank(700, 100, 2500, []), 700);

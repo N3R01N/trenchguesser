@@ -13,6 +13,9 @@ import { Standings } from './phases/Standings.tsx';
 import { Final } from './phases/Final.tsx';
 import { Spinner } from './ui.tsx';
 
+/** How long the closing standings hold before the podium takes over. */
+const FINAL_STANDINGS_HOLD_MS = 4_000;
+
 export function Game({ code }: { code: string }) {
   const [you, setYou] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -46,8 +49,14 @@ export function Game({ code }: { code: string }) {
       state.phase === 'spinning' &&
       !state.players.find((p) => p.id === state.activePlayerId)?.present;
 
+    // The last standings has no next turn to wait for, so it ends itself rather
+    // than needing a tap. The button is still there for anyone who wants it.
+    const gameOver =
+      state.phase === 'standings' && state.roundNo >= state.totalRounds;
+
     const shouldAdvance =
       spinnerGone ||
+      gameOver ||
       (state.phase === 'guessing' &&
         (ms === 0 ||
           state.players
@@ -66,7 +75,12 @@ export function Game({ code }: { code: string }) {
     attempted.current = key;
 
     const idx = state.players.findIndex((p) => p.id === you);
-    const delay = state.activePlayerId === you ? 0 : 900 + idx * 350;
+    // Long enough on the final standings to read them before the podium.
+    const delay = gameOver
+      ? FINAL_STANDINGS_HOLD_MS + idx * 250
+      : state.activePlayerId === you
+        ? 0
+        : 900 + idx * 350;
 
     const t = setTimeout(async () => {
       try {

@@ -41,7 +41,12 @@ export function Standings({
   const currentIdx = state.players.findIndex((p) => p.id === state.activePlayerId);
   const next = state.players[(currentIdx + 1) % state.players.length];
   const lastRound = state.roundNo >= state.totalRounds;
-  const yours = next?.id === you || you === state.hostId;
+  /**
+   * Starting the next round belongs to whoever is about to spin, or the host.
+   * Ending the game belongs to nobody: there is no next turn to take, so gating
+   * it left anyone who was neither staring at a dead button with the game over.
+   */
+  const yours = lastRound || next?.id === you || you === state.hostId;
 
   async function go() {
     setBusy(true);
@@ -93,7 +98,7 @@ export function Standings({
           </button>
         ) : (
           <button className="btn btn-lg" disabled>
-            {lastRound ? 'Wrapping up…' : `Waiting for ${next?.name ?? 'the next player'}`}
+            Waiting for {next?.name ?? 'the next player'}
           </button>
         )}
       </div>
