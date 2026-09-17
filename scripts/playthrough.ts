@@ -2,15 +2,18 @@
  * Plays a complete game over HTTP against a running server.
  *
  *   BASE=http://localhost:3111 node scripts/playthrough.ts
+ *   MODE=nfts BASE=http://localhost:3000 node scripts/playthrough.ts
  *
  * Exercises every route and prints the transcript, so a broken phase transition
- * shows up without opening a browser.
+ * shows up without opening a browser. In nfts mode it also proves the per-round
+ * fetch and the re-roll survive a real spin.
  */
 import type { PublicState } from '../lib/room.ts';
 import { usd, offBy } from '../lib/format.ts';
-import type { Category } from '../lib/types.ts';
+import { DEFAULT_CATEGORIES, type Category, type UniverseKey } from '../lib/types.ts';
 
 const BASE = process.env.BASE ?? 'http://localhost:3111';
+const MODE = (process.env.MODE ?? 'coins') as UniverseKey;
 const ROUNDS = 4;
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
@@ -27,12 +30,13 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 const state = (code: string) => api<PublicState>(`/api/room/${code}/state`);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-console.log(`playing a game against ${BASE}\n`);
+console.log(`playing a ${MODE} game against ${BASE}\n`);
 
 const created = await api<{ code: string; playerId: string }>('/api/room', {
   name: 'Mat',
   config: {
-    categories: ['price', 'mcap'],
+    mode: MODE,
+    categories: DEFAULT_CATEGORIES[MODE],
     baseRoundMs: 5_000,
     roundsMode: 'flat',
     roundsValue: ROUNDS,

@@ -1,18 +1,25 @@
 import { store } from './redis.ts';
+import { RoomError } from './errors.ts';
 import { universeFor } from './universe.ts';
+
+export { RoomError };
 import {
   countCategoryWins,
   effectiveCategories,
   scoreRound,
 } from './score.ts';
 import {
+  DEFAULT_CATEGORIES,
   DEFAULT_CONFIG,
+  ENTRY_NOUN,
   GUESS_GRACE_MS,
-  RANGES,
+  UNIVERSE_CATEGORIES,
   REVEAL_STEP_MS,
   SPIN_SETTLE_MS,
+  UNIVERSE_RANGES,
   roundDuration,
   type Category,
+  type Entry,
   type GameConfig,
   type Guess,
   type Player,
@@ -58,15 +65,16 @@ const PRESENCE_TIMEOUT_MS = 25_000;
 /** How long an absent player's turn stalls the game before it spins for them. */
 const AUTO_SPIN_AFTER_MS = 5_000;
 
-export class RoomError extends Error {
-  status: number;
-
-  constructor(message: string, status = 400) {
-    super(message);
-    this.name = 'RoomError';
-    this.status = status;
-  }
-}
+/**
+ * How many ranks one spin may walk past before giving up.
+ *
+ * A universe that fetches its numbers per round only discovers an entry is
+ * unguessable — no floor, no real market behind it — once it has landed there.
+ * Sliding onto the next rank costs one request, so a few attempts are cheap;
+ * handing the table an error is not. The coin universe filters at build time
+ * and so never spends more than the first.
+ */
+const MAX_SPIN_ATTEMPTS = 4;
 
 function randomCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(4));
@@ -149,11 +157,20 @@ export async function createRoom(
   hostName: string,
   config: Partial<GameConfig> = {},
 ): Promise<{ room: Room; playerId: string }> {
-  await universeFor().ensureSnapshot();
-
   const host = newPlayer(hostName);
   const merged: GameConfig = { ...DEFAULT_CONFIG, ...config };
-  if (merged.categories.length === 0) merged.categories = [...DEFAULT_CONFIG.categories];
+  if (merged.categories.length === 0) {
+    merged.categories = [...DEFAULT_CATEGORIES[merged.mode]];
+  }
+  // A category the chosen universe cannot fill would be dropped every round.
+  merged.categories = merged.categories.filter((c) =>
+    UNIVERSE_CATEGORIES[merged.mode].includes(c),
+  );
+  if (merged.categories.length === 0) {
+    merged.categories = [...DEFAULT_CATEGORIES[merged.mode]];
+  }
+
+  await universeFor(merged.mode).ensureSnapshot();
 
   for (let attempt = 0; attempt < 8; attempt++) {
     const code = randomCode();
@@ -244,19 +261,41 @@ async function applySpin(
   playerId: string,
   requestedRank: number,
 ): Promise<Room> {
-  const universe = universeFor();
-  const { from, to } = RANGES[room.config.range];
+  const universe = universeFor(room.config.mode);
+  const { from, to } = UNIVERSE_RANGES[room.config.mode][room.config.range];
   const meta = await universe.snapshotMeta();
   const ceiling = Math.min(to, meta?.size ?? to);
-  const rank = resolveRank(requestedRank, from, ceiling, room.usedRanks);
 
-  const entry = await universe.entryAtRank(rank);
-  if (!entry) throw new RoomError('Could not resolve that coin', 503);
+  let rank = resolveRank(requestedRank, from, ceiling, room.usedRanks);
+  let landed: { entry: Entry; cats: Category[]; mergedFdv: boolean } | null = null;
+  /** Ranks walked past on the way — spent, so the room never offers them again. */
+  const burned: number[] = [];
 
+  for (let attempt = 0; attempt < MAX_SPIN_ATTEMPTS; attempt++) {
+    const entry = await universe.entryAtRank(rank);
+    if (entry) {
+      const { cats, mergedFdv } = effectiveCategories(
+        room.config.categories,
+        entry.values,
+      );
+      if (cats.length > 0) {
+        landed = { entry, cats, mergedFdv };
+        break;
+      }
+    }
+    burned.push(rank);
+    rank = resolveRank(rank, from, ceiling, [...room.usedRanks, ...burned]);
+  }
+
+  if (!landed) {
+    throw new RoomError(
+      `Could not find a ${ENTRY_NOUN[room.config.mode]} to guess`,
+      503,
+    );
+  }
+
+  const { entry, cats, mergedFdv } = landed;
   const truth = entry.values;
-  const { cats, mergedFdv } = effectiveCategories(room.config.categories, truth);
-  // Nothing configured survived, so there would be nothing to guess at.
-  if (cats.length === 0) throw new RoomError('Could not resolve that coin', 503);
   const durationMs = roundDuration(room.config.baseRoundMs, cats.length);
 
   const opensAt = Date.now() + SPIN_SETTLE_MS;
@@ -275,7 +314,7 @@ async function applySpin(
   };
 
   room.round = round;
-  room.usedRanks.push(rank);
+  room.usedRanks.push(...burned, rank);
   room.phase = 'guessing';
   room.phaseEndsAt = opensAt + durationMs;
   await store().del(K.guesses(room.code, roundNo));
@@ -363,7 +402,7 @@ export async function advance(code: string, playerId: string): Promise<Room> {
       if (now - room.spinningSince < AUTO_SPIN_AFTER_MS) {
         throw new RoomError('Giving them a moment', 409);
       }
-      const { from, to } = RANGES[room.config.range];
+      const { from, to } = UNIVERSE_RANGES[room.config.mode][room.config.range];
       const rank = from + Math.floor(Math.random() * (to - from + 1));
       return applySpin(room, active.id, rank);
     }

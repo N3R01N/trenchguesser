@@ -1,6 +1,18 @@
 /** Shared domain types. No runtime deps so tests can import freely. */
 
-export const CATEGORIES = ['price', 'mcap', 'ath', 'fdv', 'vol'] as const;
+export const CATEGORIES = [
+  // coins
+  'price',
+  'mcap',
+  'ath',
+  'fdv',
+  'vol',
+  // nft collections
+  'floor',
+  'atvol',
+  'owners',
+  'sales',
+] as const;
 export type Category = (typeof CATEGORIES)[number];
 
 export const CATEGORY_LABELS: Record<Category, string> = {
@@ -9,6 +21,10 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   ath: 'All-time high',
   fdv: 'FDV',
   vol: '24h volume',
+  floor: 'Floor price',
+  atvol: 'All-time volume',
+  owners: 'Owners',
+  sales: 'Sales',
 };
 
 /**
@@ -54,7 +70,18 @@ export interface SnapshotMeta {
   bytes: number;
 }
 
-export type UniverseKey = 'coins';
+export type UniverseKey = 'coins' | 'nfts';
+
+/**
+ * What each universe can actually fill in.
+ *
+ * A category outside this list has no true value for the round, so scoring
+ * drops it — the host is only ever offered the ones that mean something.
+ */
+export const UNIVERSE_CATEGORIES: Record<UniverseKey, readonly Category[]> = {
+  coins: ['price', 'mcap', 'ath', 'fdv', 'vol'],
+  nfts: ['floor', 'atvol', 'owners', 'sales'],
+};
 
 /**
  * A ranked pool of things to guess.
@@ -73,15 +100,54 @@ export interface UniverseSource {
   snapshotMeta(): Promise<SnapshotMeta | null>;
 }
 
-export const RANGES = {
-  noob: { label: 'Noob coin', from: 100, to: 500 },
-  normal: { label: 'Normal', from: 100, to: 1000 },
-  degen: { label: 'Degen', from: 100, to: 2500 },
-} as const;
+export type RangeKey = 'noob' | 'normal' | 'degen';
 
-export type RangeKey = keyof typeof RANGES;
+export interface Range {
+  label: string;
+  from: number;
+  to: number;
+}
+
+/**
+ * How deep into the ladder each difficulty reaches.
+ *
+ * Coins start at 100 because the top of that list is common knowledge and no
+ * fun to guess. Collections start at 1: there are far fewer of them, and
+ * recognising the art is half the appeal rather than a giveaway.
+ */
+export const UNIVERSE_RANGES: Record<UniverseKey, Record<RangeKey, Range>> = {
+  coins: {
+    noob: { label: 'Noob coin', from: 100, to: 500 },
+    normal: { label: 'Normal', from: 100, to: 1000 },
+    degen: { label: 'Degen', from: 100, to: 2500 },
+  },
+  nfts: {
+    noob: { label: 'Blue chips', from: 1, to: 80 },
+    normal: { label: 'Normal', from: 1, to: 250 },
+    degen: { label: 'Degen', from: 1, to: 1000 },
+  },
+};
+
+/** What one entry is called, for anything a player reads. */
+export const ENTRY_NOUN: Record<UniverseKey, string> = {
+  coins: 'coin',
+  nfts: 'collection',
+};
+
+/** What the rank in "#412 by ..." is a rank of. */
+export const RANKED_BY: Record<UniverseKey, string> = {
+  coins: 'market cap',
+  nfts: 'all-time volume',
+};
+
+export const UNIVERSE_LABELS: Record<UniverseKey, string> = {
+  coins: 'Coins',
+  nfts: 'NFTs',
+};
 
 export interface GameConfig {
+  /** Which universe the game draws from. */
+  mode: UniverseKey;
   categories: Category[];
   /** Host-set base for a single-category round. Each extra category adds EXTRA_MS. */
   baseRoundMs: number;
@@ -90,8 +156,14 @@ export interface GameConfig {
   range: RangeKey;
 }
 
+export const DEFAULT_CATEGORIES: Record<UniverseKey, Category[]> = {
+  coins: ['price', 'mcap'],
+  nfts: ['floor', 'owners'],
+};
+
 export const DEFAULT_CONFIG: GameConfig = {
-  categories: ['price', 'mcap'],
+  mode: 'coins',
+  categories: [...DEFAULT_CATEGORIES.coins],
   baseRoundMs: 10_000,
   roundsMode: 'flat',
   roundsValue: 10,

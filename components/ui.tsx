@@ -62,9 +62,11 @@ export function TimerRing({
 export function CoinHeader({
   coin,
   rank,
+  rankedBy = 'market cap',
 }: {
   coin: { s: string; n: string; img: string };
   rank: number;
+  rankedBy?: string;
 }) {
   return (
     <div className="coin">
@@ -75,7 +77,9 @@ export function CoinHeader({
         <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--surface-2)' }} />
       )}
       <div>
-        <div className="coin-rank">#{rank} by market cap</div>
+        <div className="coin-rank">
+          #{rank} by {rankedBy}
+        </div>
         <div className="coin-name">{coin.n}</div>
         <div className="coin-ticker">{coin.s}</div>
       </div>

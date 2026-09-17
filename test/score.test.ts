@@ -189,7 +189,7 @@ describe('zero-sum invariant under fuzzing', () => {
         for (const c of cats) {
           if (rand() < 0.1) continue; // skipped one slider
           const noise = rand() < 0.2 ? 0 : 10 ** (rand() * 6 - 3);
-          values[c] = t[c] * noise;
+          values[c] = t[c]! * noise;
         }
         g[p] = values;
       }

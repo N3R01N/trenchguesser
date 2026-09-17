@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PublicState } from '@/lib/room.ts';
-import { CATEGORY_LABELS, REVEAL_STEP_MS } from '@/lib/types.ts';
+import { CATEGORY_LABELS, RANKED_BY, REVEAL_STEP_MS } from '@/lib/types.ts';
 import { offBy, usd } from '@/lib/format.ts';
 import { revealTier, type RevealTier } from '@/lib/score.ts';
 import { useCountUp, useStagger } from '@/lib/motion.ts';
@@ -46,7 +46,11 @@ export function Reveal({ state, you }: { state: PublicState; you: string }) {
       <Confetti fire={celebrated} />
 
       <div className="row spread">
-        <CoinHeader coin={round.coin} rank={round.rank} />
+        <CoinHeader
+          coin={round.coin}
+          rank={round.rank}
+          rankedBy={RANKED_BY[state.config.mode]}
+        />
         <span className="label">{spinner?.name} spun it</span>
       </div>
 

@@ -2,7 +2,10 @@ import { handle, readBody } from '@/lib/http.ts';
 import { createSchema } from '@/lib/schemas.ts';
 import { createRoom } from '@/lib/room.ts';
 
-/** A cold snapshot build crawls 27 pages and takes ~45s. */
+/**
+ * A cold coin snapshot crawls 27 pages and takes ~45s. The collection ladder is
+ * ~30 requests and lands in seconds, because NFT numbers are fetched per round.
+ */
 export const maxDuration = 120;
 
 export async function POST(req: Request) {

@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buzz, post } from '@/lib/client.ts';
 import type { PublicRound, PublicState } from '@/lib/room.ts';
-import { CATEGORY_LABELS, SPIN_SETTLE_MS, type Category } from '@/lib/types.ts';
+import {
+  CATEGORY_LABELS,
+  RANKED_BY,
+  SPIN_SETTLE_MS,
+  type Category,
+} from '@/lib/types.ts';
 import { decadeLabel, usd } from '@/lib/format.ts';
 import { prefersReducedMotion, useWakeLock } from '@/lib/motion.ts';
 import { CoinHeader, TimerRing } from '../ui.tsx';
@@ -21,6 +26,12 @@ const BOUNDS: Record<Category, [number, number]> = {
   ath: [1e-9, 1e5],
   fdv: [1e4, 1e13],
   vol: [1e2, 1e11],
+  // NFT collections, denominated in ETH. Far fewer decades than a coin spans,
+  // so guesses cluster harder and rounds run tighter.
+  floor: [1e-3, 1e3],
+  atvol: [1e1, 1e7],
+  owners: [1e1, 1e6],
+  sales: [1e1, 1e7],
 };
 
 const STEPS = 1000;
@@ -78,7 +89,13 @@ export function Guess({
   }, [ms, submitted, submit]);
 
   if (introMs !== null && introMs > 0) {
-    return <CoinIntro round={round} introMs={introMs} />;
+    return (
+      <CoinIntro
+        round={round}
+        introMs={introMs}
+        rankedBy={RANKED_BY[state.config.mode]}
+      />
+    );
   }
 
   const locked = state.submitted.length;
@@ -87,7 +104,11 @@ export function Guess({
   return (
     <main className="screen">
       <div className="row spread">
-        <CoinHeader coin={round.coin} rank={round.rank} />
+        <CoinHeader
+          coin={round.coin}
+          rank={round.rank}
+          rankedBy={RANKED_BY[state.config.mode]}
+        />
         <TimerRing ms={ms ?? 0} totalMs={round.durationMs} size={72} />
       </div>
 
@@ -138,7 +159,15 @@ export function Guess({
 }
 
 /** The shared beat: the number lands, then the coin drops in, then sliders go live. */
-function CoinIntro({ round, introMs }: { round: PublicRound; introMs: number }) {
+function CoinIntro({
+  round,
+  introMs,
+  rankedBy,
+}: {
+  round: PublicRound;
+  introMs: number;
+  rankedBy: string;
+}) {
   const progress = 1 - introMs / SPIN_SETTLE_MS;
   const settling = progress < 0.5 && !prefersReducedMotion();
   const [shown, setShown] = useState(round.rank);
@@ -173,7 +202,7 @@ function CoinIntro({ round, introMs }: { round: PublicRound; introMs: number }) 
         </div>
 
         <div className={`intro-coin${settling ? '' : ' is-in'}`}>
-          <CoinHeader coin={round.coin} rank={round.rank} />
+          <CoinHeader coin={round.coin} rank={round.rank} rankedBy={rankedBy} />
         </div>
       </div>
 

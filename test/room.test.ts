@@ -39,9 +39,9 @@ async function seedUniverse(size = 2500): Promise<Coin[]> {
   const s = store();
   const chunks = Math.ceil(size / PER_PAGE);
   for (let i = 0; i < chunks; i++) {
-    await s.set(`snap:c:${i}`, coins.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
+    await s.set(`snap:coins:c:${i}`, coins.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
   }
-  await s.set('snap:meta', {
+  await s.set('snap:coins:meta', {
     builtAt: Date.now(),
     size,
     chunks,

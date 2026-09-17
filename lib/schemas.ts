@@ -9,6 +9,7 @@ const category = z.enum(CATEGORIES);
 
 export const configSchema = z
   .object({
+    mode: z.enum(['coins', 'nfts']),
     categories: z.array(category).min(1, 'Pick at least one thing to guess').max(5),
     baseRoundMs: z.number().int().min(3_000).max(120_000),
     roundsMode: z.enum(['flat', 'perPlayer']),

@@ -1,5 +1,5 @@
 import type { ZodType } from 'zod';
-import { RoomError } from './room.ts';
+import { RoomError } from './errors.ts';
 
 /** Turns thrown RoomErrors into the status the client should see. */
 export async function handle(

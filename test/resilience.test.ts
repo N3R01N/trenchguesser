@@ -35,9 +35,9 @@ async function seedUniverse(size = 2500): Promise<void> {
   });
   const s = store();
   for (let i = 0; i < Math.ceil(size / PER_PAGE); i++) {
-    await s.set(`snap:c:${i}`, coins.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
+    await s.set(`snap:coins:c:${i}`, coins.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
   }
-  await s.set('snap:meta', {
+  await s.set('snap:coins:meta', {
     builtAt: Date.now(),
     size,
     chunks: Math.ceil(size / PER_PAGE),
@@ -198,8 +198,8 @@ describe('snapshot building under contention', () => {
 
     // Force everyone to consider the snapshot stale at the same moment.
     const s = store();
-    const meta = await s.get<Record<string, unknown>>('snap:meta');
-    await s.set('snap:meta', { ...meta, builtAt: Date.now() - 10 * 3600_000 });
+    const meta = await s.get<Record<string, unknown>>('snap:coins:meta');
+    await s.set('snap:coins:meta', { ...meta, builtAt: Date.now() - 10 * 3600_000 });
 
     let builds = 0;
     const original = globalThis.fetch;

@@ -6,26 +6,38 @@ import { post } from '@/lib/client.ts';
 import { lastName, rememberPlayer } from '@/lib/identity.ts';
 import { Spinner, WaitNote, type WaitStage } from '@/components/ui.tsx';
 import {
-  CATEGORIES,
   CATEGORY_LABELS,
+  DEFAULT_CATEGORIES,
   DEFAULT_CONFIG,
-  RANGES,
+  RANKED_BY,
+  UNIVERSE_CATEGORIES,
+  UNIVERSE_LABELS,
+  UNIVERSE_RANGES,
   roundDuration,
   type Category,
   type RangeKey,
+  type UniverseKey,
 } from '@/lib/types.ts';
 
 /**
- * Creating a room rebuilds the coin snapshot when the cached one has aged out,
- * which crawls CoinGecko for the better part of a minute. These track the real
- * phases of that crawl so a cold build reads as work rather than a hang.
+ * Creating a room rebuilds the snapshot when the cached one has aged out. The
+ * coin crawl takes the better part of a minute; the collection ladder is thirty
+ * requests and lands in seconds, because NFT numbers are fetched per round
+ * instead. These track the real phases so a cold build reads as work, not a hang.
  */
-const BUILD_STAGES: WaitStage[] = [
-  { after: 0, text: 'Checking for a recent coin list…' },
-  { after: 6, text: 'Crawling the market-cap rankings…' },
-  { after: 22, text: 'Dropping stablecoins, wrapped and bridged tokens…' },
-  { after: 45, text: 'Nearly there — the first game after a deploy is the slow one.' },
-];
+const BUILD_STAGES: Record<UniverseKey, WaitStage[]> = {
+  coins: [
+    { after: 0, text: 'Checking for a recent coin list…' },
+    { after: 6, text: 'Crawling the market-cap rankings…' },
+    { after: 22, text: 'Dropping stablecoins, wrapped and bridged tokens…' },
+    { after: 45, text: 'Nearly there — the first game after a deploy is the slow one.' },
+  ],
+  nfts: [
+    { after: 0, text: 'Checking for a recent collection list…' },
+    { after: 3, text: 'Walking the all-time volume ladder…' },
+    { after: 10, text: 'Dropping unverified and hidden collections…' },
+  ],
+};
 
 const BASE_CHOICES = [5_000, 10_000, 15_000, 20_000];
 const PER_PLAYER_CHOICES = [1, 2, 3];
@@ -34,6 +46,7 @@ const FLAT_CHOICES = [5, 10, 15, 20];
 export default function HostSetup() {
   const router = useRouter();
   const [name, setName] = useState(() => lastName());
+  const [mode, setMode] = useState<UniverseKey>(DEFAULT_CONFIG.mode);
   const [categories, setCategories] = useState<Category[]>([
     ...DEFAULT_CONFIG.categories,
   ]);
@@ -43,6 +56,12 @@ export default function HostSetup() {
   const [range, setRange] = useState<RangeKey>('degen');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  /** Categories belong to a universe, so switching modes starts them over. */
+  function pickMode(next: UniverseKey) {
+    setMode(next);
+    setCategories([...DEFAULT_CATEGORIES[next]]);
+  }
 
   function toggle(cat: Category) {
     setCategories((prev) =>
@@ -61,7 +80,7 @@ export default function HostSetup() {
     try {
       const res = await post<{ code: string; playerId: string }>('/api/room', {
         name,
-        config: { categories, baseRoundMs, roundsMode, roundsValue, range },
+        config: { mode, categories, baseRoundMs, roundsMode, roundsValue, range },
       });
       rememberPlayer(res.code, res.playerId, name);
       router.push(`/room/${res.code}`);
@@ -95,9 +114,26 @@ export default function HostSetup() {
         </div>
 
         <div className="field">
+          <span className="label">Guess on</span>
+          <div className="segments">
+            {(Object.keys(UNIVERSE_LABELS) as UniverseKey[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                className="segment"
+                aria-pressed={mode === key}
+                onClick={() => pickMode(key)}
+              >
+                {UNIVERSE_LABELS[key]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
           <span className="label">Guess what</span>
           <div className="chips">
-            {CATEGORIES.map((cat) => (
+            {UNIVERSE_CATEGORIES[mode].map((cat) => (
               <button
                 key={cat}
                 type="button"
@@ -177,7 +213,7 @@ export default function HostSetup() {
         <div className="field">
           <span className="label">Difficulty</span>
           <div className="segments">
-            {(Object.keys(RANGES) as RangeKey[]).map((key) => (
+            {(Object.keys(UNIVERSE_RANGES[mode]) as RangeKey[]).map((key) => (
               <button
                 key={key}
                 type="button"
@@ -185,12 +221,13 @@ export default function HostSetup() {
                 aria-pressed={range === key}
                 onClick={() => setRange(key)}
               >
-                {RANGES[key].label}
+                {UNIVERSE_RANGES[mode][key].label}
               </button>
             ))}
           </div>
           <p className="muted">
-            Ranks {RANGES[range].from}–{RANGES[range].to} by market cap.
+            Ranks {UNIVERSE_RANGES[mode][range].from}–
+            {UNIVERSE_RANGES[mode][range].to} by {RANKED_BY[mode]}.
           </p>
         </div>
       </div>
@@ -198,7 +235,12 @@ export default function HostSetup() {
       {error && <div className="error">{error}</div>}
 
       <div className="screen-foot">
-        {busy && <WaitNote title="Building the coin list" stages={BUILD_STAGES} />}
+        {busy && (
+          <WaitNote
+            title={mode === 'nfts' ? 'Building the collection list' : 'Building the coin list'}
+            stages={BUILD_STAGES[mode]}
+          />
+        )}
         <button
           className="btn btn-primary btn-lg"
           disabled={busy || !name.trim() || categories.length === 0}

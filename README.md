@@ -22,6 +22,35 @@ The first room you create builds the coin universe, which crawls 27 pages of the
 CoinGecko API and takes about 45 seconds. Every room after that is instant until
 the snapshot ages out.
 
+## Two modes
+
+**Coins** spins a market-cap rank and guesses price, market cap, ATH, FDV and
+24h volume. **NFTs** spins an all-time-volume rank over Ethereum collections and
+guesses floor price, all-time volume, owners and sales.
+
+They are the same game over a different universe. `lib/universe.ts` picks the
+source; everything downstream — the state machine, scoring, every screen — is
+indifferent to which one it got.
+
+The two sources have opposite shapes, and that is the whole design:
+
+| | CoinGecko | OpenSea |
+|---|---|---|
+| Ranked list | 27 requests, **numbers included** | 30 requests, **no numbers at all** |
+| Per-entity numbers | free, in the list | one request each, at spin time |
+| Budget | 10,000 credits/month | 600 requests/hour on a free key |
+
+OpenSea's ranked list carries names and art but no floor price, and there is no
+batched stats endpoint. Pricing a thousand collections up front would cost a
+thousand requests, so NFT mode stores only the ladder and fetches the numbers
+for the one collection a spin lands on. A 100-round game is about 115 requests.
+
+That trade has one consequence worth knowing: **the build can no longer filter
+on numbers it hasn't fetched.** A collection with no floor is only discovered on
+landing, so `applySpin` walks to the next rank and burns the dead one. What can
+be filtered up front — unverified, NSFW, disabled, art-less — is, because that
+all arrives in the cheap list call.
+
 ## The API key is not optional
 
 Get a free Demo key from the [CoinGecko developer dashboard](https://www.coingecko.com/en/api/pricing)
@@ -41,7 +70,9 @@ updates."
    depending on how the store was added. The app reads both pairs, so nothing
    needs renaming. `REDIS_URL` is the `rediss://` protocol endpoint and is not
    used — the client speaks REST.
-3. Add `COINGECKO_API_KEY` under **Settings → Environment Variables**.
+3. Add `COINGECKO_API_KEY` under **Settings → Environment Variables**, and
+   `OPENSEA_API_KEY` too if you want NFT mode. Either mode fails with a plain
+   503 naming the key it is missing, so a game without one is never a mystery.
 4. Deploy.
 
 There is no cron to configure: the coin snapshot rebuilds itself lazily whenever
@@ -56,6 +87,7 @@ Note that Vercel's Hobby plan is for personal, non-commercial projects.
 | Resource | Ceiling | This uses |
 |---|---|---|
 | CoinGecko credits | 10,000/mo | ~7,000/mo |
+| OpenSea requests | 600/hr | ~20/ladder + ~1/round |
 | Upstash commands | 500,000/mo | ~1,200/game |
 | Upstash storage | 256 MB | ~550 KB |
 
@@ -63,8 +95,9 @@ Note that Vercel's Hobby plan is for personal, non-commercial projects.
 
 ```bash
 npm run dev          # local server
-npm test             # 38 tests, no test framework — node --test runs the TS directly
+npm test             # 52 tests, no test framework — node --test runs the TS directly
 npm run snapshot     # rebuild the coin universe and print what it found
+npm run snapshot:nft # rebuild the collection ladder, and measure the dead rate
 npm run playthrough  # drive a full game over HTTP against a running server
 ```
 
@@ -73,6 +106,7 @@ npm run playthrough  # drive a full game over HTTP against a running server
 ```bash
 npm run dev &
 BASE=http://localhost:3000 npm run playthrough
+MODE=nfts BASE=http://localhost:3000 npm run playthrough
 ```
 
 ## How it fits together
@@ -80,7 +114,9 @@ BASE=http://localhost:3000 npm run playthrough
 ```
 lib/types.ts        domain model, and every constant both sides need
 lib/score.ts        log-squared error, winner/loser split, FDV merge, reveal tiers
-lib/coins.ts        snapshot builder: crawl, exclude, filter, chunk, lazy rebuild
+lib/universe.ts     which source a game draws from (server only)
+lib/coins.ts        CoinGecko: crawl, exclude, filter, chunk, lazy rebuild
+lib/nfts.ts         OpenSea: the ladder up front, the numbers per round
 lib/room.ts         the game state machine (server only)
 lib/useRoomState.ts polling hook — the transport seam
 components/phases/  one file per screen

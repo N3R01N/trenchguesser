@@ -1,4 +1,5 @@
 import { store } from './redis.ts';
+import { RoomError } from './errors.ts';
 import type { Coin, Entry, SnapshotMeta, UniverseSource } from './types.ts';
 
 const CG_BASE = 'https://api.coingecko.com/api/v3';
@@ -28,10 +29,10 @@ const EXCLUSIONS_TTL_S = 24 * 60 * 60;
 const KEY_TTL_S = 7 * 24 * 60 * 60;
 
 const K = {
-  meta: 'snap:meta',
-  chunk: (i: number) => `snap:c:${i}`,
-  exclusions: 'snap:excl',
-  lock: 'snap:lock',
+  meta: 'snap:coins:meta',
+  chunk: (i: number) => `snap:coins:c:${i}`,
+  exclusions: 'snap:coins:excl',
+  lock: 'snap:coins:lock',
 };
 
 interface MarketRow {
@@ -55,7 +56,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 async function cg<T>(path: string, params: Record<string, string>): Promise<T> {
   const key = process.env.COINGECKO_API_KEY;
-  if (!key) throw new Error('COINGECKO_API_KEY is not set');
+  if (!key) throw new RoomError('Coin mode needs COINGECKO_API_KEY to be set', 503);
 
   const url = `${CG_BASE}${path}?${new URLSearchParams(params)}`;
   let lastError: unknown;
