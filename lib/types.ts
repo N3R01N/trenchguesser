@@ -171,9 +171,9 @@ export const UNIVERSE_RANGES: Record<UniverseKey, Record<RangeKey, Range>> = {
     degen: { label: 'Degen', from: 100, to: 2500 },
   },
   nfts: {
-    noob: { label: 'Blue chips', from: 1, to: 80 },
-    normal: { label: 'Normal', from: 1, to: 400 },
-    degen: { label: 'Degen', from: 1, to: 2500 },
+    noob: { label: 'Blue chips', from: 1, to: 250 },
+    normal: { label: 'Normal', from: 1, to: 500 },
+    degen: { label: 'Degen', from: 1, to: 1000 },
   },
 };
 
