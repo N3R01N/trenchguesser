@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { buzz, post } from '@/lib/client.ts';
 import type { PublicState } from '@/lib/room.ts';
-import { ENTRY_NOUN, UNIVERSE_RANGES } from '@/lib/types.ts';
+import { ENTRY_NOUN, rangeLabel } from '@/lib/types.ts';
 import { prefersReducedMotion } from '@/lib/motion.ts';
 import { RoundDots } from '../ui.tsx';
 
@@ -23,8 +23,8 @@ export function Spin({
   you: string;
   onChanged: () => void;
 }) {
-  const range = UNIVERSE_RANGES[state.config.mode][state.config.range];
-  const { from, to } = range;
+  const { rankFrom: from, rankTo: to } = state.config;
+  const difficulty = rangeLabel(state.config.mode, from, to);
   const isMine = state.activePlayerId === you;
   const spinner = state.players.find((p) => p.id === state.activePlayerId);
 
@@ -75,7 +75,7 @@ export function Spin({
       <div className="row spread">
         <RoundDots state={state} />
         <span className="label">
-          {range.label} · {from}–{to}
+          {difficulty} · {from}–{to}
         </span>
       </div>
 
@@ -87,7 +87,9 @@ export function Spin({
           {landed !== null
             ? 'Locked.'
             : isMine
-              ? 'Tap stop. Whatever number you land on is the coin everybody guesses.'
+              ? `Tap stop. Whatever number you land on is the ${
+                  ENTRY_NOUN[state.config.mode]
+                } everybody guesses.`
               : `${spinner?.name ?? 'Someone'} is spinning…`}
         </p>
       </div>

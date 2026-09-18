@@ -60,6 +60,19 @@ describe('axis labels', () => {
   test('dollars stay the default, so coin mode is untouched', () => {
     assert.equal(decadeLabel(9), decadeLabel(9, 'usd'));
   });
+
+  test('a short axis ticks between the K/M/B boundaries, and reads as a number', () => {
+    // A two-decade axis — a punk's sale count — would carry one label if it
+    // could only tick on the boundaries, and "1e2" reads as a bug.
+    assert.equal(decadeLabel(2, 'count'), '100');
+    assert.equal(decadeLabel(4, 'count'), '10K');
+    assert.equal(decadeLabel(5, 'usd'), '$100K');
+  });
+
+  test('past the biggest suffix it keeps counting in trillions', () => {
+    assert.equal(decadeLabel(13, 'usd'), '$10T');
+    assert.equal(decadeLabel(-6, 'usd'), '1e-6');
+  });
 });
 
 describe('unchanged helpers', () => {

@@ -331,6 +331,17 @@ input[type='text']:focus-visible {
   gap: 6px;
 }
 
+/* A preset fills these two, and then they are the host's to move. */
+.range-row {
+  display: flex;
+  gap: 10px;
+}
+
+.range-row .field {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---------- segmented control ---------- */
 
 .segments {

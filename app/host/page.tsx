@@ -11,9 +11,11 @@ import {
   DEFAULT_CATEGORIES,
   DEFAULT_CONFIG,
   RANKED_BY,
+  RANK_LIMITS,
   UNIVERSE_CATEGORIES,
   UNIVERSE_LABELS,
   UNIVERSE_RANGES,
+  normalizeRankRange,
   roundDuration,
   type Category,
   type RangeKey,
@@ -59,14 +61,36 @@ export default function HostSetup() {
   const [baseRoundMs, setBaseRoundMs] = useState(DEFAULT_CONFIG.baseRoundMs);
   const [roundsMode, setRoundsMode] = useState<'flat' | 'perPlayer'>('flat');
   const [roundsValue, setRoundsValue] = useState(10);
-  const [range, setRange] = useState<RangeKey>('degen');
+  /**
+   * The difficulties are a starting point, not the choice.
+   *
+   * Tapping one fills the two numbers below it and the host can then move
+   * either — "Noob coin, but 50 to 200" is a table's own idea of easy, and no
+   * preset was ever going to name it. Held as text so a half-typed number is
+   * allowed to exist; what gets sent is normalised.
+   */
+  const [rankFrom, setRankFrom] = useState(String(DEFAULT_CONFIG.rankFrom));
+  const [rankTo, setRankTo] = useState(String(DEFAULT_CONFIG.rankTo));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  /** Categories belong to a universe, so switching modes starts them over. */
+  const bounds = normalizeRankRange(mode, Number(rankFrom), Number(rankTo));
+
+  /** Categories and ranks belong to a universe, so switching starts them over. */
   function pickMode(next: UniverseKey) {
     setMode(next);
     setCategories([...DEFAULT_CATEGORIES[next]]);
+    pickRange(UNIVERSE_RANGES[next].degen);
+  }
+
+  function pickRange({ from, to }: { from: number; to: number }) {
+    setRankFrom(String(from));
+    setRankTo(String(to));
+  }
+
+  /** Whatever was typed becomes the range the game can actually be played on. */
+  function settle() {
+    pickRange(bounds);
   }
 
   function toggle(cat: Category) {
@@ -86,7 +110,15 @@ export default function HostSetup() {
     try {
       const res = await post<{ code: string; playerId: string }>('/api/room', {
         name,
-        config: { mode, categories, baseRoundMs, roundsMode, roundsValue, range },
+        config: {
+          mode,
+          categories,
+          baseRoundMs,
+          roundsMode,
+          roundsValue,
+          rankFrom: bounds.from,
+          rankTo: bounds.to,
+        },
       });
       rememberPlayer(res.code, res.playerId, name);
       router.push(`/room/${res.code}`);
@@ -220,26 +252,57 @@ export default function HostSetup() {
         </div>
 
         {mode !== 'punks' && (
-        <div className="field">
-          <span className="label">Difficulty</span>
-          <div className="segments">
-            {(Object.keys(UNIVERSE_RANGES[mode]) as RangeKey[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                className="segment"
-                aria-pressed={range === key}
-                onClick={() => setRange(key)}
-              >
-                {UNIVERSE_RANGES[mode][key].label}
-              </button>
-            ))}
+          <div className="field">
+            <span className="label">Difficulty</span>
+            <div className="segments">
+              {(Object.keys(UNIVERSE_RANGES[mode]) as RangeKey[]).map((key) => {
+                const preset = UNIVERSE_RANGES[mode][key];
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className="segment"
+                    aria-pressed={
+                      bounds.from === preset.from && bounds.to === preset.to
+                    }
+                    onClick={() => pickRange(preset)}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="range-row">
+              <label className="field">
+                <span className="label">From rank</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  value={rankFrom}
+                  onChange={(e) => setRankFrom(e.target.value.replace(/\D/g, ''))}
+                  onBlur={settle}
+                />
+              </label>
+              <label className="field">
+                <span className="label">To rank</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  value={rankTo}
+                  onChange={(e) => setRankTo(e.target.value.replace(/\D/g, ''))}
+                  onBlur={settle}
+                />
+              </label>
+            </div>
+
+            <p className="muted">
+              Ranks {bounds.from}–{bounds.to} by {RANKED_BY[mode]}. Anything from{' '}
+              {RANK_LIMITS[mode].min} to {RANK_LIMITS[mode].max} is fair game.
+            </p>
           </div>
-          <p className="muted">
-            Ranks {UNIVERSE_RANGES[mode][range].from}–
-            {UNIVERSE_RANGES[mode][range].to} by {RANKED_BY[mode]}.
-          </p>
-        </div>
         )}
       </div>
 

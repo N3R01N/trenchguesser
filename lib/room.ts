@@ -18,6 +18,7 @@ import {
   REVEAL_STEP_MS,
   SPIN_SETTLE_MS,
   UNIVERSE_RANGES,
+  normalizeRankRange,
   roundDuration,
   zeroMeans,
   type Category,
@@ -173,6 +174,20 @@ export async function createRoom(
   if (merged.categories.length === 0) {
     merged.categories = [...DEFAULT_CATEGORIES[merged.mode]];
   }
+  /**
+   * Ranks belong to a universe: a coin range means nothing on the punk ladder.
+   * A host who named neither gets the chosen universe's own default rather than
+   * the one the default config happens to carry, and a host who named them gets
+   * them normalised, because those numbers were typed by hand.
+   */
+  const preset = UNIVERSE_RANGES[merged.mode].degen;
+  const bounds = normalizeRankRange(
+    merged.mode,
+    config.rankFrom ?? preset.from,
+    config.rankTo ?? preset.to,
+  );
+  merged.rankFrom = bounds.from;
+  merged.rankTo = bounds.to;
 
   await universeFor(merged.mode).ensureSnapshot();
 
@@ -266,7 +281,7 @@ async function applySpin(
   requestedRank: number,
 ): Promise<Room> {
   const universe = universeFor(room.config.mode);
-  const { from, to } = UNIVERSE_RANGES[room.config.mode][room.config.range];
+  const { rankFrom: from, rankTo: to } = room.config;
   const meta = await universe.snapshotMeta();
   const ceiling = Math.min(to, meta?.size ?? to);
 
@@ -408,7 +423,7 @@ export async function advance(code: string, playerId: string): Promise<Room> {
       if (now - room.spinningSince < AUTO_SPIN_AFTER_MS) {
         throw new RoomError('Giving them a moment', 409);
       }
-      const { from, to } = UNIVERSE_RANGES[room.config.mode][room.config.range];
+      const { rankFrom: from, rankTo: to } = room.config;
       const rank = from + Math.floor(Math.random() * (to - from + 1));
       return applySpin(room, active.id, rank);
     }

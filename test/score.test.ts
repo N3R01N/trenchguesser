@@ -234,8 +234,8 @@ describe('fdv merge rule', () => {
 
 describe('a category where zero is an answer', () => {
   /** Punks: three quarters have sold, a quarter never have. */
-  const never = { lastSale: 0, highSale: 0, lowSale: 0 };
-  const sold = { lastSale: 45, highSale: 60, lowSale: 12 };
+  const never = { lastSale: 0, highSale: 0, saleCount: 0 };
+  const sold = { lastSale: 45, highSale: 60, saleCount: 12 };
   const g = (vals: Record<string, Partial<Record<Category, number>>>) =>
     Object.fromEntries(
       Object.entries(vals).map(([id, values]) => [id, { at: Date.now(), values }]),
@@ -340,15 +340,31 @@ describe('a category where zero is an answer', () => {
     assert.equal(r.delta.b, r.delta.c, 'and the two who missed lose equally');
   });
 
-  test('the high and the low still score normally when it has sold', () => {
+  test('the price and the count still score normally when it has sold', () => {
     const r = scoreRound(
       ['a', 'b'],
-      ['highSale', 'lowSale'],
+      ['highSale', 'saleCount'],
       sold,
-      g({ a: { highSale: 58, lowSale: 400 }, b: { highSale: 900, lowSale: 11 } }),
+      g({ a: { highSale: 58, saleCount: 40 }, b: { highSale: 900, saleCount: 11 } }),
     );
     assert.deepEqual(r.outcomes[0]?.winners, ['a'], 'a is closer on the high');
-    assert.deepEqual(r.outcomes[1]?.winners, ['b'], 'b is closer on the low');
+    assert.deepEqual(r.outcomes[1]?.winners, ['b'], 'b is closer on the count');
+    assert.equal(sum(r.delta), 0);
+  });
+
+  test('a punk that never sold has no sales, and saying so wins it', () => {
+    const r = scoreRound(
+      ['a', 'b', 'c'],
+      ['saleCount'],
+      never,
+      g({ a: { saleCount: 0 }, b: { saleCount: 1 }, c: { saleCount: 12 } }),
+    );
+    assert.deepEqual(r.outcomes[0]?.winners, ['a']);
+    assert.deepEqual(
+      r.outcomes[0]?.errors.b !== null && r.outcomes[0]!.errors.b! < r.outcomes[0]!.errors.c!,
+      true,
+      'and one sale is nearer to none than a dozen is',
+    );
     assert.equal(sum(r.delta), 0);
   });
 });

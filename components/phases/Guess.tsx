@@ -26,7 +26,11 @@ const STEPS = 1000;
 function toValue(step: number, cat: Category): number {
   const [lo, hi] = CATEGORY_BOUNDS[cat];
   const t = step / STEPS;
-  return 10 ** (Math.log10(lo) + t * (Math.log10(hi) - Math.log10(lo)));
+  const value = 10 ** (Math.log10(lo) + t * (Math.log10(hi) - Math.log10(lo)));
+  // A count is a whole number of things, and the readout already rounds it —
+  // so the axis rounds too, and nobody wins a punk's sale count by 0.4 of a
+  // sale they were never shown.
+  return CATEGORY_UNITS[cat] === 'count' ? Math.round(value) : value;
 }
 
 export function Guess({
@@ -264,11 +268,14 @@ function LogSlider({
   }
 
   // Tick every three decades so every label lands on a K/M/B/T boundary —
-  // mixing "$1M" with "1e10" on one axis reads as a bug.
+  // mixing "$1M" with "1e10" on one axis reads as a bug. A short axis gets a
+  // tick per decade instead, because three would leave it with one label.
   const decades: number[] = [];
   const first = Math.ceil(Math.log10(lo));
   const last = Math.floor(Math.log10(hi));
-  for (let d = Math.ceil(first / 3) * 3; d <= last; d += 3) decades.push(d);
+  const every = last - first > 3 ? 3 : 1;
+  const start = every === 3 ? Math.ceil(first / 3) * 3 : first;
+  for (let d = start; d <= last; d += every) decades.push(d);
 
   return (
     <div className="guess">

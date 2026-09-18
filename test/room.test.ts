@@ -14,7 +14,15 @@ import {
   submitGuess,
   RoomError,
 } from '../lib/room.ts';
-import type { Category, Coin } from '../lib/types.ts';
+import {
+  MIN_RANK_SPAN,
+  RANK_LIMITS,
+  UNIVERSE_RANGES,
+  normalizeRankRange,
+  rangeLabel,
+  type Category,
+  type Coin,
+} from '../lib/types.ts';
 
 const PER_PAGE = 250;
 
@@ -79,7 +87,8 @@ describe('room lifecycle', () => {
       categories: ['price', 'mcap'],
       roundsMode: 'flat',
       roundsValue: 4,
-      range: 'degen',
+      rankFrom: 100,
+      rankTo: 2500,
     });
 
     await joinRoom(room.code, 'Ana');
@@ -191,7 +200,8 @@ describe('a full game', () => {
       categories: ['price', 'mcap', 'fdv'],
       roundsMode: 'flat',
       roundsValue: 6,
-      range: 'degen',
+      rankFrom: 100,
+      rankTo: 2500,
       baseRoundMs: 10_000,
     });
     const { playerId: anaId } = await joinRoom(room.code, 'Ana');
@@ -467,6 +477,90 @@ describe('when the game ends', () => {
       () => advance(code, host),
       /Cannot advance from final/,
       'a finished game stays finished',
+    );
+  });
+});
+
+describe('a difficulty the host has moved', () => {
+  test('a preset is a starting point, and its numbers are what get played', () => {
+    const noob = UNIVERSE_RANGES.coins.noob;
+    assert.deepEqual(normalizeRankRange('coins', noob.from, noob.to), {
+      from: noob.from,
+      to: noob.to,
+    });
+    // ...and the same numbers moved by hand are nobody's difficulty any more.
+    assert.equal(rangeLabel('coins', noob.from, noob.to), noob.label);
+    assert.equal(rangeLabel('coins', 50, 200), 'Custom');
+  });
+
+  test('numbers typed in any state still describe a playable ladder', () => {
+    assert.deepEqual(normalizeRankRange('coins', 200, 50), { from: 50, to: 200 });
+    assert.deepEqual(
+      normalizeRankRange('coins', 1, 99_999),
+      { from: RANK_LIMITS.coins.min, to: RANK_LIMITS.coins.max },
+      'past the end of the ladder there is nothing to land on',
+    );
+
+    const empty = normalizeRankRange('coins', Number.NaN, Number.NaN);
+    assert.deepEqual(empty, {
+      from: UNIVERSE_RANGES.coins.degen.from,
+      to: UNIVERSE_RANGES.coins.degen.to,
+    });
+  });
+
+  test('a range too narrow to play widens rather than repeating one coin', () => {
+    const tight = normalizeRankRange('coins', 400, 402);
+    assert.equal(tight.to - tight.from, MIN_RANK_SPAN);
+    assert.equal(tight.from, 400, 'and it grows away from where the host was');
+
+    // At the very top of the ladder there is only one direction left to grow.
+    const capped = normalizeRankRange('coins', RANK_LIMITS.coins.max, RANK_LIMITS.coins.max);
+    assert.equal(capped.to, RANK_LIMITS.coins.max);
+    assert.equal(capped.to - capped.from, MIN_RANK_SPAN);
+  });
+
+  test('the ladder a range belongs to is the one the game is played on', () => {
+    // Punk indices start at zero, where every other universe starts at one.
+    assert.equal(normalizeRankRange('punks', 0, 9_999).from, 0);
+    assert.equal(normalizeRankRange('coins', 0, 500).from, RANK_LIMITS.coins.min);
+  });
+
+  test('a room is built from the host\'s own numbers, and spins inside them', async () => {
+    await seedUniverse();
+    const { room, playerId: host } = await createRoom('Mat', {
+      categories: ['price'],
+      roundsValue: 3,
+      rankFrom: 50,
+      rankTo: 200,
+    });
+    assert.deepEqual(
+      [room.config.rankFrom, room.config.rankTo],
+      [50, 200],
+      'the host asked for a range no preset offers',
+    );
+
+    await joinRoom(room.code, 'Ana');
+    await startGame(room.code, host);
+    const spun = await spin(room.code, host, 9_999);
+    assert.equal(spun.round?.rank, 200, 'a request past the top lands on the top');
+  });
+
+  test('a room with no range named gets its own universe\'s default', async () => {
+    // A fresh snapshot is all createRoom asks of a universe; no punk is spun.
+    await store().set('snap:punks:meta', {
+      builtAt: Date.now(),
+      size: 10_000,
+      chunks: 20,
+      bytes: 1,
+    });
+    const { room } = await createRoom('Mat', {
+      mode: 'punks',
+      categories: ['lastSale'],
+    });
+    assert.deepEqual(
+      [room.config.rankFrom, room.config.rankTo],
+      [UNIVERSE_RANGES.punks.degen.from, UNIVERSE_RANGES.punks.degen.to],
+      'a coin range would mean nothing on the punk ladder',
     );
   });
 });

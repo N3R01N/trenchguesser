@@ -23,17 +23,19 @@ let sold = 0;
 let never = 0;
 let multi = 0;
 let overCap = 0;
+let mostSales = 0;
 const lasts: number[] = [];
 
 for (let i = 0; i < meta.size; i++) {
   const e = await punkSource.entryAtRank(i);
   const last = e?.values.lastSale ?? 0;
   const high = e?.values.highSale ?? 0;
-  const low = e?.values.lowSale ?? 0;
+  const sales = e?.values.saleCount ?? 0;
   if (last > 0) {
     sold++;
     lasts.push(last);
-    if (high > low) multi++;
+    if (sales > 1) multi++;
+    if (sales > mostSales) mostSales = sales;
     if (high > PUNK_UNIVERSE_CONFIG.SALE_CAP_ETH) overCap++;
   } else never++;
 }
@@ -42,7 +44,8 @@ lasts.sort((a, b) => a - b);
 const q = (p: number) => lasts[Math.floor(lasts.length * p)] as number;
 console.log(`\nsold at a real price : ${sold} (${((100 * sold) / meta.size).toFixed(1)}%)`);
 console.log(`never sold           : ${never} (${((100 * never) / meta.size).toFixed(1)}%)`);
-console.log(`more than one sale   : ${multi}  — these carry a distinct high and low`);
+console.log(`more than one sale   : ${multi}  — these carry a distinct last and high`);
+console.log(`most sales on one    : ${mostSales}  — the top of the sale-count axis is 100`);
 console.log(`a sale over ${PUNK_UNIVERSE_CONFIG.SALE_CAP_ETH} ETH  : ${overCap}`);
 console.log(
   `\nlast sale (ETH): min ${lasts[0]?.toFixed(3)}  p5 ${q(0.05).toFixed(2)}  ` +

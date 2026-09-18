@@ -51,9 +51,6 @@ interface Row {
   /** highest sale, and when */
   h: number;
   ha: number;
-  /** lowest sale, and when */
-  o: number;
-  oa: number;
   /** how many real sales it has had */
   n: number;
 }
@@ -105,7 +102,7 @@ async function api<T>(path: string): Promise<T> {
   throw new RoomError(`Could not reach cryptopunks.app — ${String(lastError)}`, 503);
 }
 
-const empty = (): Row => ({ l: 0, la: 0, h: 0, ha: 0, o: 0, oa: 0, n: 0 });
+const empty = (): Row => ({ l: 0, la: 0, h: 0, ha: 0, n: 0 });
 
 /** Every sale ever, folded down to one row per punk. */
 export async function buildUniverse(): Promise<Row[]> {
@@ -143,10 +140,6 @@ export async function buildUniverse(): Promise<Row[]> {
       if (eth > row.h) {
         row.h = eth;
         row.ha = at;
-      }
-      if (row.o === 0 || eth < row.o) {
-        row.o = eth;
-        row.oa = at;
       }
     }
 
@@ -241,14 +234,16 @@ export const punkSource: UniverseSource = {
     const row = await rowAt(index);
     if (!row) return null;
 
-    const values: Truth = { lastSale: row.l, highSale: row.h, lowSale: row.o };
+    const values: Truth = {
+      lastSale: row.l,
+      highSale: row.h,
+      saleCount: row.n,
+    };
     const notes: Record<string, string> = {};
     const lastWhen = when(row.la);
     const highWhen = when(row.ha);
-    const lowWhen = when(row.oa);
     if (lastWhen) notes.lastSale = lastWhen;
     if (highWhen) notes.highSale = highWhen;
-    if (lowWhen) notes.lowSale = lowWhen;
 
     return {
       id: `punk-${index}`,

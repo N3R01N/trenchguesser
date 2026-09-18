@@ -47,7 +47,8 @@ const created = await api<{ code: string; playerId: string }>('/api/room', {
     baseRoundMs: 5_000,
     roundsMode: 'flat',
     roundsValue: ROUNDS,
-    range: 'degen',
+    rankFrom: 100,
+    rankTo: 2500,
   },
 });
 const code = created.code;

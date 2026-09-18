@@ -15,7 +15,7 @@ export const CATEGORIES = [
   // cryptopunks
   'lastSale',
   'highSale',
-  'lowSale',
+  'saleCount',
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 
@@ -41,7 +41,7 @@ export const CATEGORY_UNITS: Record<Category, Unit> = {
   sales: 'count',
   lastSale: 'eth',
   highSale: 'eth',
-  lowSale: 'eth',
+  saleCount: 'count',
 };
 
 /**
@@ -55,7 +55,7 @@ export const CATEGORY_UNITS: Record<Category, Unit> = {
 export const CATEGORY_ZERO_LABEL: Partial<Record<Category, string>> = {
   lastSale: 'Never sold',
   highSale: 'Never sold',
-  lowSale: 'Never sold',
+  saleCount: 'Never sold',
 };
 
 export function zeroMeans(cat: Category): string | undefined {
@@ -73,7 +73,6 @@ export function zeroMeans(cat: Category): string | undefined {
 export const CATEGORY_OVER_CAP: Partial<Record<Category, number>> = {
   lastSale: 5_000,
   highSale: 5_000,
-  lowSale: 5_000,
 };
 
 /**
@@ -135,7 +134,11 @@ export const CATEGORY_BOUNDS: Record<Category, [number, number]> = {
   // 5,000; the three sales above it are answered with a bucket, not aimed at.
   lastSale: [1e-2, 5e3],
   highSale: [1e-2, 5e3],
-  lowSale: [1e-2, 5e3],
+  // Thirty thousand sales spread over ten thousand punks: most that have sold
+  // at all have sold a handful of times, and the most flipped are in the dozens.
+  // A hundred is out of reach of the real ladder on purpose — the top of the
+  // axis is meant to be an overbid, not a target.
+  saleCount: [1, 1e2],
 };
 
 export const CATEGORY_LABELS: Record<Category, string> = {
@@ -150,7 +153,7 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   sales: 'Sales',
   lastSale: 'Last sale',
   highSale: 'Highest sale',
-  lowSale: 'Lowest sale',
+  saleCount: 'Number of sales',
 };
 
 /**
@@ -214,7 +217,7 @@ export type UniverseKey = (typeof UNIVERSE_KEYS)[number];
 export const UNIVERSE_CATEGORIES: Record<UniverseKey, readonly Category[]> = {
   coins: ['price', 'mcap', 'ath', 'fdv', 'vol'],
   nfts: ['floor', 'atvol', 'owners', 'sales'],
-  punks: ['lastSale', 'highSale', 'lowSale'],
+  punks: ['lastSale', 'highSale', 'saleCount'],
 };
 
 /**
@@ -248,6 +251,10 @@ export interface Range {
  * Coins start at 100 because the top of that list is common knowledge and no
  * fun to guess. Collections start at 1: there are far fewer of them, and
  * recognising the art is half the appeal rather than a giveaway.
+ *
+ * These are starting points rather than the choice itself: picking one fills
+ * the two numbers the game actually spins between, which the host is then free
+ * to move. A table that wants ranks 50 to 200 is not a difficulty we can name.
  */
 export const UNIVERSE_RANGES: Record<UniverseKey, Record<RangeKey, Range>> = {
   coins: {
@@ -271,6 +278,61 @@ export const UNIVERSE_RANGES: Record<UniverseKey, Record<RangeKey, Range>> = {
     degen: { label: 'All punks', from: 0, to: 9999 },
   },
 };
+
+/**
+ * How far each ladder really goes.
+ *
+ * The presets stop well short of these, because a hand-typed range should be
+ * able to reach the end of the pool. Past the end there is nothing to land on:
+ * the spin clamps to whatever the snapshot actually holds, so these are what
+ * the host is allowed to ask for rather than a promise.
+ */
+export const RANK_LIMITS: Record<UniverseKey, { min: number; max: number }> = {
+  coins: { min: 1, max: 2_500 },
+  nfts: { min: 1, max: 2_800 },
+  punks: { min: 0, max: 9_999 },
+};
+
+/** Fewer ranks than this and a game would keep landing on the same entry. */
+export const MIN_RANK_SPAN = 10;
+
+/**
+ * The range the game will actually spin between.
+ *
+ * Hand-typed numbers arrive in any state — empty, reversed, past the end of the
+ * ladder — and the server normalises rather than refuses, because a bad range
+ * should cost the host a correction on screen, not a failed room.
+ */
+export function normalizeRankRange(
+  mode: UniverseKey,
+  from: number,
+  to: number,
+): { from: number; to: number } {
+  const limit = RANK_LIMITS[mode];
+  const preset = UNIVERSE_RANGES[mode].degen;
+
+  const clamp = (v: number, fallback: number) =>
+    Number.isFinite(v)
+      ? Math.min(limit.max, Math.max(limit.min, Math.round(v)))
+      : fallback;
+
+  let lo = clamp(from, preset.from);
+  let hi = clamp(to, preset.to);
+  if (lo > hi) [lo, hi] = [hi, lo];
+
+  // Widen upwards where there is room, downwards where there is not.
+  if (hi - lo < MIN_RANK_SPAN) {
+    hi = Math.min(limit.max, lo + MIN_RANK_SPAN);
+    lo = Math.max(limit.min, hi - MIN_RANK_SPAN);
+  }
+  return { from: lo, to: hi };
+}
+
+/** What to call a range: the preset it matches, or that it is nobody's preset. */
+export function rangeLabel(mode: UniverseKey, from: number, to: number): string {
+  const presets = Object.values(UNIVERSE_RANGES[mode]);
+  return presets.find((r) => r.from === from && r.to === to)?.label ?? 'Custom';
+}
 
 /**
  * Where a guess stops being good, per universe.
@@ -321,7 +383,9 @@ export interface GameConfig {
   baseRoundMs: number;
   roundsMode: 'flat' | 'perPlayer';
   roundsValue: number;
-  range: RangeKey;
+  /** The ladder positions this game spins between. A preset only seeds them. */
+  rankFrom: number;
+  rankTo: number;
 }
 
 export const DEFAULT_CATEGORIES: Record<UniverseKey, Category[]> = {
@@ -336,7 +400,8 @@ export const DEFAULT_CONFIG: GameConfig = {
   baseRoundMs: 10_000,
   roundsMode: 'flat',
   roundsValue: 10,
-  range: 'degen',
+  rankFrom: UNIVERSE_RANGES.coins.degen.from,
+  rankTo: UNIVERSE_RANGES.coins.degen.to,
 };
 
 /** Each category beyond the first buys more time, so per-guess pressure stays constant. */

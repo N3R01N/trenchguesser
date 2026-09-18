@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { post } from '@/lib/client.ts';
 import type { PublicState } from '@/lib/room.ts';
-import { CATEGORY_LABELS, UNIVERSE_RANGES, roundDuration } from '@/lib/types.ts';
+import { CATEGORY_LABELS, rangeLabel, roundDuration } from '@/lib/types.ts';
 
 export function Lobby({
   state,
@@ -94,9 +94,9 @@ export function Lobby({
           <div>{state.config.categories.map((c) => CATEGORY_LABELS[c]).join(' · ')}</div>
           <span className="label">Difficulty</span>
           <div>
-            {UNIVERSE_RANGES[state.config.mode][state.config.range].label} — ranks{' '}
-            {UNIVERSE_RANGES[state.config.mode][state.config.range].from}–
-            {UNIVERSE_RANGES[state.config.mode][state.config.range].to}
+            {rangeLabel(state.config.mode, state.config.rankFrom, state.config.rankTo)}
+            {' — ranks '}
+            {state.config.rankFrom}–{state.config.rankTo}
           </div>
         </div>
       </div>

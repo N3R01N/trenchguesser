@@ -40,13 +40,19 @@ export function compact(n: number): string {
  *
  * Only dollars carry their mark here: "1K ETH" is too wide for a tick, and the
  * live readout above the slider already says what the number is counted in.
+ *
+ * A wide axis is ticked every three decades so every label lands on a K/M/B/T
+ * boundary, but a narrow one is ticked every decade and needs the steps in
+ * between: 100 and 10K are as readable as 1K, where 1e2 reads as a bug.
  */
 export function decadeLabel(exp: number, unit: Unit = 'usd'): string {
   const suffix: Record<number, string> = { 0: '', 3: 'K', 6: 'M', 9: 'B', 12: 'T' };
 
   let mag: string;
-  if (exp >= 0 && exp <= 12 && exp % 3 === 0) mag = `1${suffix[exp]}`;
-  else if (exp < 0 && exp >= -3) mag = (10 ** exp).toFixed(-exp);
+  if (exp >= 0 && exp <= 14) {
+    const boundary = Math.min(12, Math.floor(exp / 3) * 3);
+    mag = `${10 ** (exp - boundary)}${suffix[boundary]}`;
+  } else if (exp < 0 && exp >= -3) mag = (10 ** exp).toFixed(-exp);
   else return `1e${exp}`;
 
   return unit === 'usd' ? `$${mag}` : mag;

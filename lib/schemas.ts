@@ -14,7 +14,10 @@ export const configSchema = z
     baseRoundMs: z.number().int().min(3_000).max(120_000),
     roundsMode: z.enum(['flat', 'perPlayer']),
     roundsValue: z.number().int().min(1).max(50),
-    range: z.enum(['noob', 'normal', 'degen']),
+    // Bounds are normalised rather than validated into a corner: see
+    // normalizeRankRange, which is what the room is actually built from.
+    rankFrom: z.number().int().min(0).max(20_000),
+    rankTo: z.number().int().min(0).max(20_000),
   })
   .partial();
 
