@@ -1,12 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { post } from '@/lib/client.ts';
 import { lastName, rememberPlayer } from '@/lib/identity.ts';
 import { Spinner } from '@/components/ui.tsx';
 import { Brand } from '@/components/Brand.tsx';
 import { ThemeToggle } from '@/components/ThemeToggle.tsx';
+
+/**
+ * Asks whether a code opens the input-concepts page.
+ *
+ * The browser never holds the answer: it offers the code and the server says
+ * yes or no, so the only way to find the page is to know what to type. A full
+ * navigation rather than a router push, because what comes back is a page of
+ * its own rather than a screen of this app.
+ */
+async function openIfDemo(code: string): Promise<boolean> {
+  const at = `/demo/${encodeURIComponent(code)}`;
+  try {
+    const res = await fetch(at, { method: 'HEAD', cache: 'no-store' });
+    if (!res.ok) return false;
+    window.location.assign(at);
+    return true;
+  } catch {
+    return false; // offline, or the route is not deployed — just join instead
+  }
+}
 
 export default function Home() {
   const router = useRouter();
@@ -21,12 +41,20 @@ export default function Home() {
     setJoining(true);
   }
 
+  // A full code is worth one question before anybody has typed a name.
+  const clean = code.trim().toUpperCase();
+  useEffect(() => {
+    if (clean.length < 4) return;
+    const t = setTimeout(() => void openIfDemo(clean), 300);
+    return () => clearTimeout(t);
+  }, [clean]);
+
   async function join(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const clean = code.trim().toUpperCase();
+      if (await openIfDemo(clean)) return;
       const res = await post<{ code: string; playerId: string }>(
         `/api/room/${encodeURIComponent(clean)}/join`,
         { name },

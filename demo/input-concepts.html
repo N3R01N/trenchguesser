@@ -1,0 +1,1652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Six Ways to Type 42</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #fafafa;
+    --surface-2: #f1f1f2;
+    --border: #e4e4e6;
+    --border-2: #cdcdd1;
+    --text: #0b0b0c;
+    --muted: #62646a;
+    --faint: #83848a;
+    --accent: #0b0b0c;
+    --accent-ink: #ffffff;
+    --accent-dim: #f1f1f2;
+    --gold: #9a6f16;
+    --gold-dim: #f8f0dc;
+    --bad: #b8302a;
+    --bad-dim: #fcecea;
+
+    --radius: 12px;
+    --tap: 52px;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: #0b0b0c;
+      --surface: #151517;
+      --surface-2: #1f1f22;
+      --border: #2b2b2f;
+      --border-2: #3e3e44;
+      --text: #f4f4f5;
+      --muted: #a1a1a8;
+      --faint: #85858d;
+      --accent: #f4f4f5;
+      --accent-ink: #0b0b0c;
+      --accent-dim: #1c1c1f;
+      --gold: #e3b341;
+      --gold-dim: #2a2113;
+      --bad: #e5695f;
+      --bad-dim: #2c1917;
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: #0b0b0c;
+    --surface: #151517;
+    --surface-2: #1f1f22;
+    --border: #2b2b2f;
+    --border-2: #3e3e44;
+    --text: #f4f4f5;
+    --muted: #a1a1a8;
+    --faint: #85858d;
+    --accent: #f4f4f5;
+    --accent-ink: #0b0b0c;
+    --accent-dim: #1c1c1f;
+    --gold: #e3b341;
+    --gold-dim: #2a2113;
+    --bad: #e5695f;
+    --bad-dim: #2c1917;
+  }
+
+  /* The artifact host padded these for the notch; standalone we do it. */
+  :root {
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .wrap {
+    max-width: 560px;
+    margin: 0 auto;
+    padding-inline: 16px;
+    padding-block: 0 56px;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 28px 0 10px;
+  }
+
+  .standfirst {
+    color: var(--muted);
+    margin: 0 0 4px;
+    max-width: 46ch;
+  }
+
+  .standfirst b {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* ---------- the bench: range, target, snap ---------- */
+
+  .bench {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 5;
+    margin: 20px -16px 0;
+    padding: 12px 16px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .bench-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .segments {
+    display: flex;
+    gap: 6px;
+  }
+
+  .segment {
+    flex: 1;
+    min-height: 38px;
+    padding: 0 6px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+  }
+
+  .segment[aria-pressed='true'] {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .target {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .target-value {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .target-side {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ghost {
+    min-height: 38px;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border-2);
+    border-radius: 9px;
+    cursor: pointer;
+  }
+
+  .switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .switch input {
+    appearance: none;
+    flex: none;
+    width: 40px;
+    height: 24px;
+    margin: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .switch input::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: var(--bg);
+    border-radius: 50%;
+    transition: transform 0.15s ease;
+  }
+
+  .switch input:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .switch input:checked::after {
+    transform: translateX(16px);
+    background: var(--accent-ink);
+  }
+
+  .switch-copy {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  .switch-copy b {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ---------- concept cards ---------- */
+
+  .card {
+    margin-top: 18px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .card-head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 12px;
+    align-items: baseline;
+  }
+
+  .letter {
+    grid-row: span 2;
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--faint);
+    align-self: start;
+    line-height: 1.3;
+  }
+
+  .card-head h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .thesis {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+
+  .control {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .readout {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .readout-value {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 27px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .readout-note {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    text-align: right;
+  }
+
+  /* ---------- sliders ---------- */
+
+  input[type='range'] {
+    appearance: none;
+    width: 100%;
+    height: 34px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    appearance: none;
+    width: 30px;
+    height: 30px;
+    margin-top: -13px;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    border-radius: 50%;
+  }
+
+  input[type='range']::-moz-range-track {
+    height: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+
+  input[type='range']::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    border-radius: 50%;
+  }
+
+  input[type='range']:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 6px;
+  }
+
+  .scale {
+    position: relative;
+    height: 14px;
+    margin-top: -4px;
+  }
+
+  .scale span {
+    position: absolute;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--faint);
+    white-space: nowrap;
+  }
+
+  .stack-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* ---------- keypad ---------- */
+
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .key {
+    min-height: var(--tap);
+    font-family: var(--mono);
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border-2);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .key:active {
+    background: var(--accent-dim);
+  }
+
+  .key.is-wide {
+    grid-column: span 2;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chip {
+    min-height: 40px;
+    padding: 0 13px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border-2);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .chip[aria-pressed='true'] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .typed {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 27px;
+    font-weight: 600;
+    min-height: 36px;
+    letter-spacing: -0.01em;
+  }
+
+  .typed .caret {
+    color: var(--faint);
+    font-weight: 400;
+  }
+
+  /* ---------- nudge ---------- */
+
+  .nudge {
+    display: flex;
+    gap: 8px;
+  }
+
+  .nudge button {
+    flex: 1;
+    min-height: 46px;
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border-2);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .nudge button:active {
+    background: var(--accent-dim);
+  }
+
+  /* ---------- wheels ---------- */
+
+  .wheels {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px;
+    position: relative;
+  }
+
+  .wheels::after {
+    content: '';
+    position: absolute;
+    inset: 50% 6px auto;
+    height: 44px;
+    transform: translateY(-50%);
+    border-top: 1px solid var(--border-2);
+    border-bottom: 1px solid var(--border-2);
+    pointer-events: none;
+  }
+
+  .wheel {
+    flex: 1;
+    height: 132px;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    text-align: center;
+  }
+
+  .wheel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .wheel-pad {
+    height: 44px;
+  }
+
+  .wheel-item {
+    height: 44px;
+    line-height: 44px;
+    scroll-snap-align: center;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--faint);
+  }
+
+  .wheel-item.is-on {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ---------- lock in + result ---------- */
+
+  .lock {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .lock-btn {
+    min-height: 44px;
+    padding: 0 18px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent-ink);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .verdict {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .verdict.is-hit {
+    color: var(--gold);
+  }
+
+  .verdict.is-miss {
+    color: var(--bad);
+  }
+
+  .verdict b {
+    font-weight: 600;
+  }
+
+  /* ---------- scoreboard ---------- */
+
+  .board-wrap {
+    overflow-x: auto;
+    margin-top: 12px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12.5px;
+  }
+
+  th,
+  td {
+    text-align: right;
+    padding: 7px 6px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  th {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  th:first-child,
+  td:first-child {
+    text-align: left;
+    white-space: normal;
+  }
+
+  td.is-best {
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  .notes {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .notes h2 {
+    font-size: 15px;
+    margin: 0 0 8px;
+  }
+
+  .notes p {
+    color: var(--muted);
+    margin: 0 0 10px;
+    max-width: 62ch;
+  }
+
+  .notes code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 5px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <h1>Six ways to type 42</h1>
+  <p class="standfirst">
+    A punk sale runs from 0.01 to 5,000 ETH. Spread over 1,000 slider steps and
+    a 340px thumb track, <b>one pixel is about 4%</b> — so 42 ETH sits between
+    two pixels and you get 41.7. Here are six inputs over the game's real
+    ranges. Pick a target, race each one, and take the letter that wins.
+  </p>
+  <p class="standfirst">
+    <b>E is the one that shipped.</b> The rest are kept here as the record of
+    what it was picked over.
+  </p>
+
+  <div class="bench">
+    <div class="bench-rows">
+      <div>
+        <span class="label">Range</span>
+        <div class="segments" id="ranges" role="group" aria-label="Which range to test"></div>
+      </div>
+
+      <div class="target">
+        <div>
+          <span class="label">Enter this</span>
+          <div class="target-value" id="target">42 ETH</div>
+        </div>
+        <div class="target-side">
+          <button class="ghost" id="next-target" type="button">Next target</button>
+        </div>
+      </div>
+
+      <label class="switch" for="snap">
+        <input type="checkbox" id="snap" checked>
+        <span class="switch-copy">
+          <b>Snap to 2 significant figures.</b>
+          Off, the axis is continuous and 42 is unhittable in every concept
+          below — including the one that ships.
+        </span>
+      </label>
+    </div>
+  </div>
+
+  <div id="concepts"></div>
+
+  <section class="notes" id="board-section">
+    <h2>What you did</h2>
+    <p>
+      Gestures counts a drag or a flick as one, the same as a tap — the fastest
+      control is not always the one with the fewest.
+    </p>
+    <div class="board-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Concept</th>
+            <th>Best</th>
+            <th>Last</th>
+            <th>Gestures</th>
+            <th>Hits</th>
+          </tr>
+        </thead>
+        <tbody id="board"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="notes">
+    <h2>Notes from building these</h2>
+    <p>
+      <b>Snapping is the cheap half of the fix.</b> Rounding the committed value
+      to two significant figures is one line in <code>toValue</code>, and it is
+      what makes 42 a number the game can hold at all. It does not make it easy
+      to find: two significant figures over 5.7 decades is about 510 distinct
+      values, so on a phone each one is still under a pixel of thumb travel.
+      That is why the six differ in effort, not in whether they can hit.
+    </p>
+    <p>
+      <b>The decimal point is the whole problem.</b> Every concept that works
+      splits magnitude from mantissa — a decade chip, a second slider, a wheel
+      — because those are two different questions. "Roughly how big" is a
+      gesture; "which number exactly" is a digit.
+    </p>
+    <p>
+      <b>The ten-second clock is the constraint.</b> A keypad is exact but
+      costs a look down at your hands; a coarse-plus-fine slider keeps your
+      eyes on the number. Test them with the timer, not by reading this.
+    </p>
+    <p>
+      Not shown, because they are unchanged: the <b>Never sold</b> and
+      <b>Over 5,000</b> chips still sit under whichever control you pick, and
+      they still submit 0 and 10,000.
+    </p>
+  </section>
+</div>
+
+<script>
+  'use strict';
+
+  /* ---------------- the game's real ranges ---------------- */
+
+  const RANGES = {
+    punk: {
+      label: 'Punk sale',
+      unit: 'eth',
+      lo: 0.01,
+      hi: 5000,
+      targets: [42, 3.5, 0.08, 675, 12.5, 1.1],
+    },
+    sales: {
+      label: 'Punk sales',
+      unit: 'count',
+      lo: 1,
+      hi: 100,
+      int: true,
+      targets: [3, 1, 27, 7, 12],
+    },
+    price: {
+      label: 'Coin price',
+      unit: 'usd',
+      lo: 1e-9,
+      hi: 1e4,
+      targets: [0.0000042, 0.42, 3.5, 1250, 0.019],
+    },
+    mcap: {
+      label: 'Market cap',
+      unit: 'usd',
+      lo: 1e4,
+      hi: 1e12,
+      targets: [1.5e6, 4.2e7, 8e9, 250000, 3.3e11],
+    },
+  };
+
+  let range = RANGES.punk;
+  let targetIdx = 0;
+  let snapOn = true;
+
+  /* ---------------- formatting, lifted from the app ---------------- */
+
+  const SUFFIX = [
+    [1e12, 'T'],
+    [1e9, 'B'],
+    [1e6, 'M'],
+    [1e3, 'K'],
+  ];
+
+  function compact(n) {
+    if (!isFinite(n) || n <= 0) return '0';
+    for (const [size, s] of SUFFIX) {
+      if (n >= size) {
+        const v = n / size;
+        return (v >= 100 ? v.toFixed(0) : trim(v.toFixed(2))) + s;
+      }
+    }
+    if (n >= 1) return trim(n.toFixed(2));
+    if (n >= 1e-6) return trim(n.toFixed(Math.min(12, Math.max(2, 2 - Math.floor(Math.log10(n))))));
+    const exp = Math.floor(Math.log10(n));
+    return (n / 10 ** exp).toFixed(1) + 'e' + exp;
+  }
+
+  function trim(s) {
+    return s.replace(/\.?0+$/, '');
+  }
+
+  function fmt(n) {
+    if (!isFinite(n) || n <= 0) return range.unit === 'usd' ? '$0' : '0';
+    if (range.unit === 'usd') return '$' + compact(n);
+    if (range.unit === 'eth') {
+      return (n >= 1000 ? compact(n) : String(Number(n.toPrecision(3)))) + ' ETH';
+    }
+    return Math.round(n).toLocaleString('en-US');
+  }
+
+  /** Axis tick labels: 100, 10K, 0.001 — never 1e2. */
+  function decadeLabel(exp) {
+    const map = { 0: '', 3: 'K', 6: 'M', 9: 'B', 12: 'T' };
+    let mag;
+    if (exp >= 0 && exp <= 14) {
+      const b = Math.min(12, Math.floor(exp / 3) * 3);
+      mag = String(10 ** (exp - b)) + map[b];
+    } else if (exp < 0 && exp >= -6) {
+      mag = (10 ** exp).toFixed(-exp);
+    } else {
+      mag = '1e' + exp;
+    }
+    return range.unit === 'usd' ? '$' + mag : mag;
+  }
+
+  /* ---------------- the axis ---------------- */
+
+  const lg = Math.log10;
+
+  function fromT(t) {
+    return 10 ** (lg(range.lo) + t * (lg(range.hi) - lg(range.lo)));
+  }
+
+  function toT(v) {
+    return (lg(v) - lg(range.lo)) / (lg(range.hi) - lg(range.lo));
+  }
+
+  /** Two significant figures — the whole point of the switch. */
+  function snap(v) {
+    const c = Math.min(range.hi, Math.max(range.lo, v));
+    if (range.int) return Math.max(1, Math.round(c));
+    if (!snapOn) return c;
+    const p = 10 ** (Math.floor(lg(c)) - 1);
+    return Math.round(c / p) * p;
+  }
+
+  function decades() {
+    const out = [];
+    for (let d = Math.floor(lg(range.lo)); d <= Math.floor(lg(range.hi)); d++) out.push(d);
+    return out;
+  }
+
+  function offBy(v, t) {
+    const r = v > t ? v / t : t / v;
+    if (r < 1.005) return 'spot on';
+    return (r < 10 ? r.toFixed(2) : Math.round(r)) + 'x ' + (v > t ? 'too high' : 'too low');
+  }
+
+  const target = () => range.targets[targetIdx % range.targets.length];
+  const isHit = (v) => Math.abs(v - target()) / target() < 0.005;
+
+  /* ---------------- per-concept bookkeeping ---------------- */
+
+  const stats = {};
+  const instances = [];
+
+  function track(id) {
+    if (!stats[id]) stats[id] = { best: null, last: null, gestures: 0, hits: 0, tries: 0, t0: 0 };
+    return stats[id];
+  }
+
+  function begin(id) {
+    const s = track(id);
+    if (!s.t0) s.t0 = performance.now();
+  }
+
+  function gesture(id) {
+    begin(id);
+    track(id).gestures += 1;
+  }
+
+  /* ---------------- concept scaffolding ---------------- */
+
+  const CONCEPTS = [
+    {
+      id: 'slider',
+      letter: 'A',
+      name: 'Log slider',
+      thesis: 'What ships today, for comparison. One thumb, the whole range, no way to land on a number you had in mind.',
+      build: buildSlider,
+    },
+    {
+      id: 'keypad',
+      letter: 'B',
+      name: 'Keypad and a magnitude',
+      thesis: 'Type the digits, tap how big. Two taps for 42, four for $1.5M — the objection that keypads are too slow only holds while you have to type the zeros.',
+      build: buildKeypad,
+    },
+    {
+      id: 'coarse',
+      letter: 'C',
+      name: 'Decade, then mantissa',
+      thesis: 'The top slider picks the order of magnitude and snaps to it. The bottom one runs 1.0 to 9.9, so every value in the range is two comfortable drags away.',
+      build: buildCoarse,
+    },
+    {
+      id: 'ladder',
+      letter: 'D',
+      name: 'Ladder and nudge',
+      thesis: 'The slider stops only on 1, 2 and 5 of each decade — big targets, no hunting. The arrows then walk the second digit, so 40 becomes 42.',
+      build: buildLadder,
+    },
+    {
+      id: 'refine',
+      letter: 'E',
+      name: 'Zoom on release',
+      thesis: 'One thumb still, but letting go re-scales the axis around where you landed. The first drag is the decade, the second is the number.',
+      build: buildRefine,
+    },
+    {
+      id: 'wheels',
+      letter: 'F',
+      name: 'Digit wheels',
+      thesis: 'Two digits and a magnitude, each on its own drum. Nothing to aim at — you flick until the number reads right.',
+      build: buildWheels,
+    },
+  ];
+
+  const conceptsEl = document.getElementById('concepts');
+
+  for (const c of CONCEPTS) {
+    const card = document.createElement('section');
+    card.className = 'card';
+    card.innerHTML =
+      '<div class="card-head">' +
+      '<div class="letter">' + c.letter + '</div>' +
+      '<h2>' + c.name + '</h2>' +
+      '<p class="thesis">' + c.thesis + '</p>' +
+      '</div>' +
+      '<div class="control"></div>' +
+      '<div class="lock">' +
+      '<button class="lock-btn" type="button">Lock it in</button>' +
+      '<span class="verdict">Not tried yet.</span>' +
+      '</div>';
+
+    const control = card.querySelector('.control');
+    const verdict = card.querySelector('.verdict');
+    const inst = { id: c.id, letter: c.letter, name: c.name, control: control, verdict: verdict };
+
+    // Every concept exposes value()/reset(); the harness needs nothing else.
+    inst.api = c.build(control, inst);
+    instances.push(inst);
+
+    card.querySelector('.lock-btn').addEventListener('click', function () {
+      lockIn(inst);
+    });
+
+    conceptsEl.appendChild(card);
+  }
+
+  function lockIn(inst) {
+    const s = track(inst.id);
+    const v = inst.api.value();
+    const ms = s.t0 ? performance.now() - s.t0 : 0;
+    s.t0 = 0;
+    s.tries += 1;
+    s.last = ms;
+    const hit = isHit(v);
+    if (hit) {
+      s.hits += 1;
+      if (s.best === null || ms < s.best) s.best = ms;
+    }
+    inst.verdict.className = 'verdict ' + (hit ? 'is-hit' : 'is-miss');
+    inst.verdict.innerHTML =
+      '<b>' + fmt(v) + '</b> — ' +
+      (hit ? 'spot on' : offBy(v, target())) +
+      (ms ? ' · ' + (ms / 1000).toFixed(1) + 's · ' + s.gestures + ' gestures' : '');
+    drawBoard();
+  }
+
+  function drawBoard() {
+    const rows = [];
+    let bestOf = null;
+    for (const inst of instances) {
+      const s = stats[inst.id];
+      if (s && s.best !== null && (bestOf === null || s.best < bestOf)) bestOf = s.best;
+    }
+    for (const inst of instances) {
+      const s = stats[inst.id] || { best: null, last: null, gestures: 0, hits: 0, tries: 0 };
+      const best = s.best === null ? '—' : (s.best / 1000).toFixed(1) + 's';
+      const last = s.last ? (s.last / 1000).toFixed(1) + 's' : '—';
+      rows.push(
+        '<tr><td>' + inst.letter + ' · ' + inst.name + '</td>' +
+        '<td class="' + (s.best !== null && s.best === bestOf ? 'is-best' : '') + '">' + best + '</td>' +
+        '<td>' + last + '</td>' +
+        '<td>' + (s.gestures || '—') + '</td>' +
+        '<td>' + (s.tries ? s.hits + '/' + s.tries : '—') + '</td></tr>',
+      );
+    }
+    document.getElementById('board').innerHTML = rows.join('');
+  }
+
+  /* ---------------- A. the log slider that ships ---------------- */
+
+  function readout(parent, note) {
+    const row = document.createElement('div');
+    row.className = 'readout';
+    row.innerHTML = '<span class="readout-value">—</span><span class="readout-note"></span>';
+    parent.appendChild(row);
+    const value = row.querySelector('.readout-value');
+    const hint = row.querySelector('.readout-note');
+    if (note) hint.textContent = note;
+    return {
+      set: function (v) {
+        value.textContent = fmt(v);
+      },
+      note: function (t) {
+        hint.textContent = t;
+      },
+    };
+  }
+
+  /** Decade ticks under a slider: every decade when the axis is short. */
+  function scaleFor(lo, hi) {
+    const el = document.createElement('div');
+    el.className = 'scale';
+    const first = Math.ceil(lg(lo));
+    const last = Math.floor(lg(hi));
+    const every = last - first > 3 ? 3 : 1;
+    const start = every === 3 ? Math.ceil(first / 3) * 3 : first;
+    let html = '';
+    for (let d = start; d <= last; d += every) {
+      const left = ((d - lg(lo)) / (lg(hi) - lg(lo))) * 100;
+      html += '<span style="left:' + left.toFixed(2) + '%">' + decadeLabel(d) + '</span>';
+    }
+    el.innerHTML = html;
+    return el;
+  }
+
+  function rangeInput(parent, attrs) {
+    const el = document.createElement('input');
+    el.type = 'range';
+    el.min = attrs.min;
+    el.max = attrs.max;
+    el.step = attrs.step;
+    el.value = attrs.value;
+    el.setAttribute('aria-label', attrs.label);
+    parent.appendChild(el);
+    return el;
+  }
+
+  function buildSlider(root, inst) {
+    const out = readout(root);
+    const wrap = document.createElement('div');
+    wrap.className = 'stack-row';
+    root.appendChild(wrap);
+    const el = rangeInput(wrap, { min: 0, max: 1000, step: 1, value: 500, label: 'Value' });
+    const scale = scaleFor(range.lo, range.hi);
+    wrap.appendChild(scale);
+
+    let value = snap(fromT(0.5));
+
+    function paint() {
+      value = snap(fromT(el.value / 1000));
+      out.set(value);
+    }
+
+    el.addEventListener('input', function () {
+      begin(inst.id);
+      paint();
+    });
+    el.addEventListener('pointerdown', function () {
+      gesture(inst.id);
+    });
+    el.addEventListener('keydown', function () {
+      gesture(inst.id);
+    });
+
+    /** What one of the thousand steps costs — the reason 42 is unreachable. */
+    function cost() {
+      const per = 10 ** ((lg(range.hi) - lg(range.lo)) / 1000) - 1;
+      out.note('one step \u2248 ' + (per * 100).toFixed(1) + '%');
+    }
+
+    paint();
+    cost();
+
+    return {
+      value: function () {
+        return value;
+      },
+      reset: function () {
+        el.value = 500;
+        wrap.replaceChild(scaleFor(range.lo, range.hi), wrap.lastChild);
+        paint();
+        cost();
+      },
+    };
+  }
+
+  /* ---------------- B. keypad and a magnitude ---------------- */
+
+  function buildKeypad(root, inst) {
+    const typed = document.createElement('div');
+    typed.className = 'typed';
+    root.appendChild(typed);
+
+    const out = readout(root);
+
+    const chipRow = document.createElement('div');
+    chipRow.className = 'chips';
+    root.appendChild(chipRow);
+
+    const pad = document.createElement('div');
+    pad.className = 'keypad';
+    root.appendChild(pad);
+
+    let digits = '';
+    let mag = 0;
+    let chips = [];
+
+    function chipsFor() {
+      // One chip per decade the range spans, thinned to every third for the
+      // very wide axes so the row never wraps past two lines.
+      const ds = decades();
+      const step = ds.length > 7 ? 3 : 1;
+      const picked = [];
+      for (let i = 0; i < ds.length; i += step) picked.push(ds[i]);
+      const lastD = ds[ds.length - 1];
+      if (picked[picked.length - 1] !== lastD) picked.push(lastD);
+      return picked;
+    }
+
+    function value() {
+      const n = parseFloat(digits);
+      if (!isFinite(n) || n <= 0) return range.lo;
+      return snap(n * 10 ** mag);
+    }
+
+    function paint() {
+      typed.innerHTML = digits
+        ? digits + '<span class="caret"> ×' + decadeLabel(mag).replace(/^\$/, '') + '</span>'
+        : '<span class="caret">tap a number</span>';
+      out.set(value());
+      for (const c of chips) c.el.setAttribute('aria-pressed', String(c.d === mag));
+    }
+
+    function buildChips() {
+      chipRow.innerHTML = '';
+      chips = chipsFor().map(function (d) {
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'chip';
+        el.textContent = '×' + decadeLabel(d).replace(/^\$/, '');
+        el.addEventListener('click', function () {
+          gesture(inst.id);
+          mag = d;
+          paint();
+        });
+        chipRow.appendChild(el);
+        return { el: el, d: d };
+      });
+      // Start on the plain one where the range has it: typing 42 should mean 42.
+      mag = 0;
+      let near = Infinity;
+      for (const c of chips) {
+        if (Math.abs(c.d) < near) {
+          near = Math.abs(c.d);
+          mag = c.d;
+        }
+      }
+    }
+
+    const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+    for (const k of KEYS) {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'key';
+      el.textContent = k;
+      el.addEventListener('click', function () {
+        gesture(inst.id);
+        if (k === '⌫') digits = digits.slice(0, -1);
+        else if (k === '.') {
+          if (!digits.includes('.')) digits = (digits || '0') + '.';
+        } else if (digits.replace('.', '').length < 6) digits += k;
+        paint();
+      });
+      pad.appendChild(el);
+    }
+
+    buildChips();
+    paint();
+
+    return {
+      value: value,
+      reset: function () {
+        digits = '';
+        buildChips();
+        paint();
+      },
+    };
+  }
+
+  /* ---------------- C. decade, then mantissa ---------------- */
+
+  function buildCoarse(root, inst) {
+    const out = readout(root);
+
+    const top = document.createElement('div');
+    top.className = 'stack-row';
+    root.appendChild(top);
+    const magLabel = document.createElement('span');
+    magLabel.className = 'label';
+    top.appendChild(magLabel);
+    const magEl = rangeInput(top, { min: 0, max: 1, step: 1, value: 0, label: 'Order of magnitude' });
+
+    const bottom = document.createElement('div');
+    bottom.className = 'stack-row';
+    root.appendChild(bottom);
+    const manLabel = document.createElement('span');
+    manLabel.className = 'label';
+    bottom.appendChild(manLabel);
+    const manEl = rangeInput(bottom, { min: 10, max: 99, step: 1, value: 42, label: 'Leading digits' });
+
+    let ds = decades();
+
+    function value() {
+      const d = ds[Number(magEl.value)] || 0;
+      return snap((Number(manEl.value) / 10) * 10 ** d);
+    }
+
+    function paint() {
+      const d = ds[Number(magEl.value)] || 0;
+      magLabel.textContent = 'Magnitude — ' + decadeLabel(d) + ' to ' + decadeLabel(d + 1);
+      manLabel.textContent = 'Digits — ' + (Number(manEl.value) / 10).toFixed(1);
+      out.set(value());
+    }
+
+    for (const el of [magEl, manEl]) {
+      el.addEventListener('input', function () {
+        begin(inst.id);
+        paint();
+      });
+      el.addEventListener('pointerdown', function () {
+        gesture(inst.id);
+      });
+      el.addEventListener('keydown', function () {
+        gesture(inst.id);
+      });
+    }
+
+    function sync() {
+      ds = decades();
+      magEl.max = String(ds.length - 1);
+      magEl.value = String(Math.floor(ds.length / 2));
+      manEl.value = '42';
+      paint();
+    }
+
+    sync();
+
+    return { value: value, reset: sync };
+  }
+
+  /* ---------------- D. ladder and nudge ---------------- */
+
+  function buildLadder(root, inst) {
+    const out = readout(root);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'stack-row';
+    root.appendChild(wrap);
+    const el = rangeInput(wrap, { min: 0, max: 1, step: 1, value: 0, label: 'Value' });
+    wrap.appendChild(scaleFor(range.lo, range.hi));
+
+    const nudge = document.createElement('div');
+    nudge.className = 'nudge';
+    nudge.innerHTML =
+      '<button type="button" data-dir="-1">−</button>' +
+      '<button type="button" data-dir="1">+</button>';
+    root.appendChild(nudge);
+
+    let stops = [];
+    let value = range.lo;
+
+    function ladder() {
+      const rungs = [];
+      for (const d of decades()) {
+        for (const m of [1, 2, 5]) {
+          const v = m * 10 ** d;
+          if (v >= range.lo && v <= range.hi) rungs.push(range.int ? Math.round(v) : v);
+        }
+      }
+      if (rungs[rungs.length - 1] !== range.hi) rungs.push(range.hi);
+      return rungs.filter(function (v, i, a) {
+        return a.indexOf(v) === i;
+      });
+    }
+
+    function paint() {
+      out.set(value);
+      out.note(stops.length + ' stops');
+    }
+
+    el.addEventListener('input', function () {
+      begin(inst.id);
+      value = snap(stops[Number(el.value)]);
+      paint();
+    });
+    el.addEventListener('pointerdown', function () {
+      gesture(inst.id);
+    });
+    el.addEventListener('keydown', function () {
+      gesture(inst.id);
+    });
+
+    // One press walks the second significant digit; holding repeats.
+    let timer = null;
+    function step(dir) {
+      const unit = range.int ? 1 : 10 ** (Math.floor(lg(value)) - 1);
+      value = snap(value + dir * unit);
+      paint();
+    }
+    for (const b of nudge.querySelectorAll('button')) {
+      const dir = Number(b.dataset.dir);
+      b.addEventListener('pointerdown', function () {
+        gesture(inst.id);
+        step(dir);
+        clearInterval(timer);
+        timer = setInterval(function () {
+          step(dir);
+        }, 140);
+      });
+      for (const stop of ['pointerup', 'pointerleave', 'pointercancel']) {
+        b.addEventListener(stop, function () {
+          clearInterval(timer);
+        });
+      }
+    }
+
+    function sync() {
+      stops = ladder();
+      el.max = String(stops.length - 1);
+      el.value = String(Math.floor(stops.length / 2));
+      value = snap(stops[Number(el.value)]);
+      wrap.replaceChild(scaleFor(range.lo, range.hi), wrap.lastChild);
+      paint();
+    }
+
+    sync();
+
+    return { value: function () { return value; }, reset: sync };
+  }
+
+  /* ---------------- E. zoom on release ---------------- */
+
+  function buildRefine(root, inst) {
+    const out = readout(root);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'stack-row';
+    root.appendChild(wrap);
+    const el = rangeInput(wrap, { min: 0, max: 1000, step: 1, value: 500, label: 'Value' });
+    const scale = document.createElement('div');
+    scale.className = 'scale';
+    wrap.appendChild(scale);
+
+    const bar = document.createElement('div');
+    bar.className = 'chips';
+    bar.innerHTML = '<button type="button" class="chip" data-reset="1">Whole range</button>';
+    root.appendChild(bar);
+
+    let lo = range.lo;
+    let hi = range.hi;
+    let value = 0;
+
+    function paintScale() {
+      const first = Math.ceil(lg(lo));
+      const last = Math.floor(lg(hi));
+      let html = '';
+      if (last >= first) {
+        for (let d = first; d <= last; d++) {
+          const left = ((d - lg(lo)) / (lg(hi) - lg(lo))) * 100;
+          html += '<span style="left:' + left.toFixed(2) + '%">' + decadeLabel(d) + '</span>';
+        }
+      } else {
+        html =
+          '<span style="left:0">' + fmt(lo) + '</span>' +
+          '<span style="left:100%">' + fmt(hi) + '</span>';
+      }
+      scale.innerHTML = html;
+    }
+
+    function read() {
+      const t = el.value / 1000;
+      return snap(10 ** (lg(lo) + t * (lg(hi) - lg(lo))));
+    }
+
+    function paint() {
+      value = read();
+      out.set(value);
+      const zoomed = lo > range.lo || hi < range.hi;
+      out.note(zoomed ? fmt(lo) + ' – ' + fmt(hi) : 'whole range');
+    }
+
+    el.addEventListener('input', function () {
+      begin(inst.id);
+      paint();
+    });
+    el.addEventListener('pointerdown', function () {
+      gesture(inst.id);
+    });
+    el.addEventListener('keydown', function () {
+      gesture(inst.id);
+    });
+
+    /**
+     * Letting go narrows the axis around where the thumb landed.
+     *
+     * A quarter of the span per release, floored at about half a decade: from
+     * the punk range that is 5.7 decades, then 1.4, then 0.6 — coarse enough
+     * on the first pass to still be recoverable if you land nowhere near.
+     */
+    function zoom() {
+      const v = read();
+      const span = lg(hi) - lg(lo);
+      if (span <= 0.62) return;
+      const half = Math.max(0.6, span / 4) / 2;
+      lo = Math.max(range.lo, 10 ** (lg(v) - half));
+      hi = Math.min(range.hi, 10 ** (lg(v) + half));
+      el.value = String(Math.round(((lg(v) - lg(lo)) / (lg(hi) - lg(lo))) * 1000));
+      paintScale();
+      paint();
+    }
+    el.addEventListener('pointerup', zoom);
+
+    bar.querySelector('[data-reset]').addEventListener('click', function () {
+      gesture(inst.id);
+      lo = range.lo;
+      hi = range.hi;
+      paintScale();
+      paint();
+    });
+
+    function sync() {
+      lo = range.lo;
+      hi = range.hi;
+      el.value = 500;
+      paintScale();
+      paint();
+    }
+
+    sync();
+
+    return { value: function () { return value; }, reset: sync };
+  }
+
+  /* ---------------- F. digit wheels ---------------- */
+
+  function buildWheels(root, inst) {
+    const out = readout(root);
+
+    const wheels = document.createElement('div');
+    wheels.className = 'wheels';
+    root.appendChild(wheels);
+
+    const cols = [];
+
+    function column(items, startIdx, label) {
+      const el = document.createElement('div');
+      el.className = 'wheel';
+      el.tabIndex = 0;
+      el.setAttribute('aria-label', label);
+      el.innerHTML =
+        '<div class="wheel-pad"></div>' +
+        items
+          .map(function (it) {
+            return '<div class="wheel-item">' + it.label + '</div>';
+          })
+          .join('') +
+        '<div class="wheel-pad"></div>';
+      wheels.appendChild(el);
+
+      const col = { el: el, items: items, idx: startIdx };
+
+      let raf = 0;
+      let settle = 0;
+      el.addEventListener('scroll', function () {
+        if (raf) return;
+        raf = requestAnimationFrame(function () {
+          raf = 0;
+          const next = Math.max(0, Math.min(items.length - 1, Math.round(el.scrollTop / 44)));
+          if (next !== col.idx) {
+            col.idx = next;
+            mark(col);
+            paint();
+          }
+          clearTimeout(settle);
+          settle = setTimeout(function () {
+            gesture(inst.id);
+          }, 120);
+        });
+      });
+
+      cols.push(col);
+      return col;
+    }
+
+    function mark(col) {
+      const kids = col.el.querySelectorAll('.wheel-item');
+      for (let i = 0; i < kids.length; i++) kids[i].classList.toggle('is-on', i === col.idx);
+    }
+
+    function place(col, idx) {
+      col.idx = idx;
+      col.el.scrollTop = idx * 44;
+      mark(col);
+    }
+
+    function value() {
+      if (cols.length < 3) return range.lo;
+      const man = cols[0].items[cols[0].idx].v + cols[1].items[cols[1].idx].v / 10;
+      return snap(man * 10 ** cols[2].items[cols[2].idx].v);
+    }
+
+    function paint() {
+      out.set(value());
+    }
+
+    function sync() {
+      wheels.innerHTML = '';
+      cols.length = 0;
+
+      const ones = [];
+      for (let d = 1; d <= 9; d++) ones.push({ v: d, label: String(d) });
+      const tenths = [];
+      for (let d = 0; d <= 9; d++) tenths.push({ v: d, label: String(d) });
+      const mags = decades().map(function (d) {
+        return { v: d, label: decadeLabel(d).replace(/^\$/, '') };
+      });
+
+      const a = column(ones, 3, 'Leading digit');
+      const b = column(tenths, 0, 'Second digit');
+      const mid = Math.floor(mags.length / 2);
+      const c = column(mags, mid, 'Magnitude');
+      // scrollTop only takes once the columns have been laid out.
+      requestAnimationFrame(function () {
+        place(a, 3);
+        place(b, 0);
+        place(c, mid);
+      });
+      mark(a);
+      mark(b);
+      mark(c);
+      paint();
+    }
+
+    sync();
+
+    return { value: value, reset: sync };
+  }
+
+  /* ---------------- the bench ---------------- */
+
+  const rangesEl = document.getElementById('ranges');
+  const targetEl = document.getElementById('target');
+  const keys = Object.keys(RANGES);
+
+  for (const key of keys) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'segment';
+    el.textContent = RANGES[key].label;
+    el.addEventListener('click', function () {
+      range = RANGES[key];
+      targetIdx = 0;
+      for (const k of Object.keys(stats)) delete stats[k];
+      paintBench();
+      for (const inst of instances) {
+        inst.api.reset();
+        inst.verdict.className = 'verdict';
+        inst.verdict.textContent = 'Not tried yet.';
+      }
+      drawBoard();
+    });
+    rangesEl.appendChild(el);
+  }
+
+  function paintBench() {
+    const buttons = rangesEl.querySelectorAll('.segment');
+    for (let i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute('aria-pressed', String(RANGES[keys[i]] === range));
+    }
+    targetEl.textContent = fmt(target());
+  }
+
+  document.getElementById('next-target').addEventListener('click', function () {
+    targetIdx += 1;
+    for (const s of Object.values(stats)) s.t0 = 0;
+    paintBench();
+  });
+
+  document.getElementById('snap').addEventListener('change', function (e) {
+    snapOn = e.target.checked;
+    for (const inst of instances) inst.api.reset();
+  });
+
+  paintBench();
+  drawBoard();
+</script>
+</body>
+</html>
