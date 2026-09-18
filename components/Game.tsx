@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { post } from '@/lib/client.ts';
+import { useAutoAdvance } from '@/lib/autoAdvance.ts';
 import { playerFor, lastName, rememberPlayer } from '@/lib/identity.ts';
 import { useCountdown, useRoomState } from '@/lib/useRoomState.ts';
 import { HEARTBEAT_MS } from '@/lib/types.ts';
@@ -12,9 +13,6 @@ import { Reveal } from './phases/Reveal.tsx';
 import { Standings } from './phases/Standings.tsx';
 import { Final } from './phases/Final.tsx';
 import { Spinner } from './ui.tsx';
-
-/** How long the closing standings hold before the podium takes over. */
-const FINAL_STANDINGS_HOLD_MS = 4_000;
 
 export function Game({ code }: { code: string }) {
   const [you, setYou] = useState<string | null>(null);
@@ -36,63 +34,12 @@ export function Game({ code }: { code: string }) {
   const known = !!state && !!you && state.players.some((p) => p.id === you);
 
   /**
-   * Phase transitions are driven by whichever client notices first — the server
-   * decides whether the move is legal. The active player tries immediately and
-   * everyone else waits a beat, so the common case is a single request rather
-   * than one per phone.
+   * Phase transitions are driven by whichever client notices first, and the
+   * reveal has no button — so a client that stops asking strands the table.
+   * The driver keeps its own clock rather than riding on renders, and retries
+   * a rejected attempt instead of treating it as done.
    */
-  const attempted = useRef('');
-  useEffect(() => {
-    if (!state || !you || !known) return;
-
-    const spinnerGone =
-      state.phase === 'spinning' &&
-      !state.players.find((p) => p.id === state.activePlayerId)?.present;
-
-    // The last standings has no next turn to wait for, so it ends itself rather
-    // than needing a tap. The button is still there for anyone who wants it.
-    const gameOver =
-      state.phase === 'standings' && state.roundNo >= state.totalRounds;
-
-    const shouldAdvance =
-      spinnerGone ||
-      gameOver ||
-      (state.phase === 'guessing' &&
-        (ms === 0 ||
-          state.players
-            .filter((p) => p.present)
-            .every((p) => state.submitted.includes(p.id)))) ||
-      (state.phase === 'reveal' && ms === 0);
-
-    if (!shouldAdvance) return;
-
-    // A stalled spin needs retrying: presence decays without bumping the
-    // version, so the version alone would only ever let one attempt through.
-    const key = spinnerGone
-      ? `spin-rescue:${state.v}:${Math.floor(Date.now() / 5000)}`
-      : `${state.phase}:${state.v}`;
-    if (attempted.current === key) return;
-    attempted.current = key;
-
-    const idx = state.players.findIndex((p) => p.id === you);
-    // Long enough on the final standings to read them before the podium.
-    const delay = gameOver
-      ? FINAL_STANDINGS_HOLD_MS + idx * 250
-      : state.activePlayerId === you
-        ? 0
-        : 900 + idx * 350;
-
-    const t = setTimeout(async () => {
-      try {
-        await post(`/api/room/${code}/advance`, { playerId: you });
-      } catch {
-        // A 409 just means someone else got there first.
-      }
-      void refresh();
-    }, delay);
-
-    return () => clearTimeout(t);
-  }, [state, you, known, ms, code, refresh]);
+  useAutoAdvance({ code, state, you, known, msLeft, refresh });
 
   /**
    * Heartbeat. A closed tab or a locked phone sends no goodbye, so presence is

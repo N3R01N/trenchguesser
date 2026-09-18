@@ -13,6 +13,7 @@ import {
   DEFAULT_CONFIG,
   ENTRY_NOUN,
   GUESS_GRACE_MS,
+  REVEAL_GRACE_MS,
   UNIVERSE_CATEGORIES,
   REVEAL_STEP_MS,
   SPIN_SETTLE_MS,
@@ -421,7 +422,8 @@ export async function advance(code: string, playerId: string): Promise<Room> {
     }
 
     case 'reveal': {
-      if (room.phaseEndsAt !== null && now < room.phaseEndsAt) {
+      // Early by a hair is still on time, the same way a guess is.
+      if (room.phaseEndsAt !== null && now < room.phaseEndsAt - REVEAL_GRACE_MS) {
         throw new RoomError('Reveal still running', 409);
       }
       room.phase = 'standings';

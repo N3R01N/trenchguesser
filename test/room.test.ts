@@ -55,13 +55,16 @@ async function goQuiet(code: string, playerId: string): Promise<void> {
   await store().hset(`room:${code}:seen`, playerId, Date.now() - 60_000);
 }
 
-/** Fast-forwards past the guessing deadline without waiting out a real timer. */
-async function expirePhase(code: string): Promise<void> {
+/** Moves the current phase's deadline, without waiting out a real timer. */
+async function setPhaseEnd(code: string, msFromNow: number): Promise<void> {
   const s = store();
   const key = `room:${code}`;
   const raw = await s.get<Record<string, unknown>>(key);
-  await s.set(key, { ...raw, phaseEndsAt: Date.now() - 1 });
+  await s.set(key, { ...raw, phaseEndsAt: Date.now() + msFromNow });
 }
+
+/** Fast-forwards past the current deadline. */
+const expirePhase = (code: string) => setPhaseEnd(code, -1);
 
 const totalScore = (players: { score: number }[]) =>
   players.reduce((a, p) => a + p.score, 0);
@@ -317,6 +320,45 @@ describe('when a round ends', () => {
     assert.ok(
       before < (spun.phaseEndsAt ?? 0),
       'and it closed while there was still time on the clock',
+    );
+  });
+});
+
+describe('the reveal handing over to the standings', () => {
+  /** Plays a round out and stops on the reveal, with its full clock ahead. */
+  async function toReveal() {
+    await seedUniverse();
+    const { room, playerId: host } = await createRoom('Mat', { roundsValue: 3 });
+    const { playerId: ana } = await joinRoom(room.code, 'Ana');
+    await startGame(room.code, host);
+    await spin(room.code, host, 700);
+    for (const id of [host, ana]) {
+      await submitGuess(room.code, id, { price: 1, mcap: 1e6 });
+    }
+    await advance(room.code, host); // -> reveal
+    return { code: room.code, host };
+  }
+
+  test('is not handed to a client that knocks a moment early', async () => {
+    const { code, host } = await toReveal();
+    await setPhaseEnd(code, 200); // inside REVEAL_GRACE_MS
+
+    const moved = await advance(code, host);
+    assert.equal(
+      moved.phase,
+      'standings',
+      'a countdown running slightly ahead of the server still ends the reveal',
+    );
+  });
+
+  test('still owns the screen for as long as it has', async () => {
+    const { code, host } = await toReveal();
+    await setPhaseEnd(code, 3_000);
+
+    await assert.rejects(
+      () => advance(code, host),
+      /Reveal still running/,
+      'the grace window is a hair, not a licence to skip the reveal',
     );
   });
 });

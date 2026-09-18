@@ -441,5 +441,16 @@ export const REVEAL_STEP_MS = 2_400;
 /** Guesses landing within 1.5s of the deadline still count. */
 export const GUESS_GRACE_MS = 1_500;
 
+/**
+ * How early a client may ask to end the reveal.
+ *
+ * Countdowns run a touch ahead of the server — the clock offset is read off a
+ * response that has already crossed the network — so the first client to hit
+ * zero tends to knock a few milliseconds early. The transition is idempotent
+ * and the reveal is generous, so meeting it early costs nothing, where turning
+ * it away used to cost the round.
+ */
+export const REVEAL_GRACE_MS = 500;
+
 /** FDV within this ratio of market cap is the same number — merge the categories. */
 export const FDV_MERGE_RATIO = 1.1;

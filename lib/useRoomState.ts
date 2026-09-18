@@ -33,16 +33,28 @@ export function useRoomState(code: string | null) {
     inFlight.current = ac;
 
     try {
+      // `no-store` on the request as well as the response: a browser that
+      // applies its own heuristic freshness would otherwise hand this poll a
+      // copy of a phase the rest of the table has already left.
+      const t0 = Date.now();
       const res = await fetch(`/api/room/${encodeURIComponent(code)}/state`, {
         signal: ac.signal,
+        cache: 'no-store',
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `Request failed (${res.status})`);
       }
       const next = (await res.json()) as PublicState;
+      const t1 = Date.now();
 
-      offset.current = next.serverTime - Date.now();
+      /**
+       * Halfway through the round trip is the closest this client gets to the
+       * moment the server stamped its time. Taking it against the arrival alone
+       * would put every countdown in the app a whole trip ahead of the server,
+       * which is how a client ends up asking to end a phase before it has.
+       */
+      offset.current = next.serverTime - (t0 + t1) / 2;
       setError(null);
 
       // Skip the re-render when nothing actually moved.

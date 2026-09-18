@@ -39,7 +39,11 @@ export async function readBody<T>(req: Request, schema: ZodType<T>): Promise<T> 
  * on schedule, be handed its own cached copy of a phase that had already ended,
  * and sit on a screen the rest of the table had left — which is exactly what an
  * iPhone did after the first round. The CDN still gets its second.
+ *
+ * `stale-while-revalidate` is left off for the same reason: it is not a
+ * shared-cache directive either, so it licenses a browser to paint a phase up
+ * to that many seconds out of date while it refreshes behind the scenes.
  */
 export const STATE_CACHE_HEADERS = {
-  'Cache-Control': 'public, max-age=0, s-maxage=1, stale-while-revalidate=4',
+  'Cache-Control': 'public, max-age=0, s-maxage=1',
 };
