@@ -552,11 +552,37 @@ input[type='text']:focus-visible {
   border-radius: var(--radius);
 }
 
+/* The number, and — once the axis has closed in — the way back out. */
+.guess-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .guess-value {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.guess-widen {
+  flex: none;
+  min-height: 32px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.guess-widen:disabled {
+  opacity: 0.4;
 }
 
 input[type='range'] {
